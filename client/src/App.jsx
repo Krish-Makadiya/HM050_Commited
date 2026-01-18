@@ -12,6 +12,7 @@ import MyProfile from "./pages/Settings/MyProfile";
 // Candidate Pages
 import MyProposals from "./pages/Candidate/MyProposals";
 import ActiveProjects from "./pages/Candidate/ActiveProjects";
+import VideoIntro from "./pages/Candidate/VideoIntro";
 import SubmitWork from "./pages/Candidate/SubmitWork";
 
 // Recruiter Pages
@@ -81,6 +82,11 @@ const App = () => {
                     <Route path="submit-work/:projectId" element={
                         <RoleProtected allowedRole="Candidate">
                             <SubmitWork />
+                        </RoleProtected>
+                    } />
+                    <Route path="video-intro" element={
+                        <RoleProtected allowedRole="Candidate">
+                            <VideoIntro />
                         </RoleProtected>
                     } />
 

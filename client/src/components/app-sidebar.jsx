@@ -40,9 +40,14 @@ const data = {
                     title: "My Proposals",
                     url: "/dashboard/my-proposals",
                 },
+
                 {
                     title: "Active Projects",
                     url: "/dashboard/active-projects",
+                },
+                {
+                    title: "Video Intro",
+                    url: "/dashboard/video-intro",
                 },
             ],
         },

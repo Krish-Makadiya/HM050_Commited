@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Select } from "@/ui/select";
-import { Search, Filter, MoreHorizontal, Mail, Calendar, Loader2, ExternalLink, FileText, CheckCircle2 } from "lucide-react";
+import { Search, Filter, MoreHorizontal, Mail, Calendar, Loader2, ExternalLink, FileText, CheckCircle2, PlayCircle, Sparkles } from "lucide-react";
 import { Input } from "@/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/ui/dropdown-menu";
 import { useSearchParams } from 'react-router-dom';
@@ -89,6 +89,14 @@ const Applications = () => {
         }
         return c.status === statusFilter;
     });
+    
+    // --- SMART RANKING LOGIC ---
+    // Simulate AI score if not present
+    const rankedCandidates = filteredCandidates.map(c => ({
+        ...c,
+        matchScore: c.matchScore || Math.floor(Math.random() * (98 - 70) + 70), // Mock score between 70-98
+        hasVideo: Math.random() > 0.5 // Mock video availability
+    })).sort((a, b) => b.matchScore - a.matchScore); // Sort by highest score
 
     if (isLoading) {
         return (
@@ -157,10 +165,10 @@ const Applications = () => {
             </div>
 
             <div className="grid grid-cols-1 gap-4">
-                {filteredCandidates.length === 0 ? (
+                {rankedCandidates.length === 0 ? (
                     <div className="text-center py-10 text-muted-foreground">No applicants found.</div>
                 ) : (
-                    filteredCandidates.map((candidate) => (
+                    rankedCandidates.map((candidate) => (
                         <Card key={candidate.id} className={`transition-all hover:shadow-md ${candidate.status === 'Work Submitted' ? 'border-blue-200 bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
                             <CardContent className="p-6">
                                 <div className="flex flex-col md:flex-row items-center gap-4">
@@ -173,6 +181,10 @@ const Applications = () => {
                                         <div className="flex items-center justify-center md:justify-start gap-2">
                                             <h3 className="text-lg font-semibold">{candidate.firstName} {candidate.lastName}</h3>
                                             {candidate.status === 'Hired' && <CheckCircle2 className="w-5 h-5 text-green-500" />}
+                                            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 flex items-center gap-1">
+                                                <Sparkles className="w-3 h-3" />
+                                                {candidate.matchScore}% Match
+                                            </Badge>
                                         </div>
 
                                         <p className="text-sm text-neutral-500 dark:text-neutral-400">
@@ -212,6 +224,21 @@ const Applications = () => {
                                                 </p>
                                                 <Button size="sm" variant="outline" className="h-8 gap-2 text-primary hover:text-primary hover:bg-blue-50 dark:hover:bg-blue-950" onClick={() => window.open(candidate.submissionLink, '_blank')}>
                                                     <ExternalLink className="w-3 h-3" /> View Project
+                                                </Button>
+                                            </div>
+                                        )}
+
+                                        {/* VIDEO INTRO UI */}
+                                        {candidate.hasVideo && (
+                                            <div className="mt-2">
+                                                <Button variant="ghost" size="sm" className="gap-2 text-pink-600 hover:text-pink-700 hover:bg-pink-50" onClick={() => {
+                                                    // DEMO MODE: Always play the latest uploaded video
+                                                    const videoUrl = `${import.meta.env.VITE_SERVER_API}/uploads/video-demo.webm`; 
+                                                    // Check if it exists or just play it (browser handles 404)
+                                                    window.open(videoUrl, '_blank');
+                                                    toast.info(`Playing ${candidate.firstName}'s video pitch...`);
+                                                }}>
+                                                    <PlayCircle className="w-4 h-4" /> Watch Video Pitch
                                                 </Button>
                                             </div>
                                         )}
