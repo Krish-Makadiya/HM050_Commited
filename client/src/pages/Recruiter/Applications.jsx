@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Select } from "@/ui/select";
-import { Search, Filter, MoreHorizontal, Mail, Calendar, Loader2, ExternalLink, FileText, CheckCircle2, XCircle, ChevronDown } from "lucide-react";
+import { Search, Filter, MoreHorizontal, Mail, Calendar, Loader2, ExternalLink, FileText, CheckCircle2, XCircle, ChevronDown, Sparkles } from "lucide-react";
 import { Input } from "@/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/ui/dropdown-menu";
 import { useSearchParams } from 'react-router-dom';
@@ -22,6 +22,7 @@ const Applications = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState("All");
     const [jobStatus, setJobStatus] = useState("Active");
+    const [analyzing, setAnalyzing] = useState({});
     const [selectedCandidate, setSelectedCandidate] = useState(null);
 
     useEffect(() => {
@@ -61,6 +62,31 @@ const Applications = () => {
             ));
         } catch (error) {
             console.error("Error updating status:", error);
+        }
+    };
+
+    const handleGenerateInsight = async (candidateId) => {
+        setAnalyzing((prev) => ({ ...prev, [candidateId]: true }));
+        try {
+            const response = await axios.patch(
+                `${import.meta.env.VITE_SERVER_API}/api/jobs/${jobId}/applicants/${candidateId}/analyze`
+            );
+            const { score, summary, pros } = response.data;
+
+            // Update local state
+            setCandidates((prev) =>
+                prev.map((c) =>
+                    c.id === candidateId
+                        ? { ...c, aiScore: score, aiSummary: summary, aiPros: pros, aiAnalyzedAt: new Date().toISOString() }
+                        : c
+                )
+            );
+            toast.success("AI Insight Generated!");
+        } catch (error) {
+            console.error("Error generating insight:", error);
+            toast.error("Failed to generate insight.");
+        } finally {
+            setAnalyzing((prev) => ({ ...prev, [candidateId]: false }));
         }
     };
 
@@ -220,11 +246,74 @@ const Applications = () => {
                                     </Badge>
                                 </div>
 
-                                {/* Project Preview / Snippet */}
-                                <div className="space-y-2 pt-2">
-                                    <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
-                                        <FileText className="w-4 h-4 text-primary" />
-                                        <span>Submission</span>
+                                        {/* SUBMISSION UI */}
+                                        {candidate.submissionLink && (
+                                            <div className="mt-4 bg-white dark:bg-black p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm max-w-2xl">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <FileText className="w-4 h-4 text-blue-500" />
+                                                        <span className="font-semibold text-sm">Proof of Work Submitted</span>
+                                                    </div>
+                                                    <span className="text-xs text-muted-foreground">{candidate.submissionDate ? formatDistanceToNow(new Date(candidate.submissionDate), { addSuffix: true }) : ''}</span>
+                                                </div>
+                                                <p className="text-sm text-muted-foreground mb-3 leading-relaxed">
+                                                    {candidate.submissionDescription || "No description provided."}
+                                                </p>
+                                                <div className="flex gap-2">
+                                                    <Button size="sm" variant="outline" className="h-8 gap-2 text-primary hover:text-primary hover:bg-blue-50 dark:hover:bg-blue-950" onClick={() => window.open(candidate.submissionLink, '_blank')}>
+                                                        <ExternalLink className="w-3 h-3" /> View Project
+                                                    </Button>
+                                                </div>
+
+                                                {/* AI Insight Section */}
+                                                <div className="mt-3 border-t border-dashed border-neutral-200 dark:border-neutral-800 pt-3">
+                                                    {candidate.aiScore ? (
+                                                        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-100 dark:border-indigo-900 rounded-lg p-3">
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                                                                    <span className="font-semibold text-sm text-purple-900 dark:text-purple-100">AI Scorecard</span>
+                                                                </div>
+                                                                <Badge className={`${candidate.aiScore >= 8 ? "bg-green-500 hover:bg-green-600" :
+                                                                        candidate.aiScore >= 5 ? "bg-yellow-500 hover:bg-yellow-600" :
+                                                                            "bg-red-500 hover:bg-red-600"
+                                                                    } text-white border-0`}>
+                                                                    {candidate.aiScore}/10
+                                                                </Badge>
+                                                            </div>
+                                                            <p className="text-xs text-neutral-700 dark:text-neutral-300 mb-2 italic leading-normal">"{candidate.aiSummary}"</p>
+                                                            {candidate.aiPros && (
+                                                                <div className="flex flex-wrap gap-1.5">
+                                                                    {candidate.aiPros.map((pro, idx) => (
+                                                                        <span key={idx} className="text-[10px] font-medium px-2 py-0.5 bg-white/60 dark:bg-black/40 rounded-full text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800">
+                                                                            + {pro}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="w-full text-xs h-7 gap-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/50"
+                                                            onClick={() => handleGenerateInsight(candidate.id)}
+                                                            disabled={analyzing[candidate.id]}
+                                                        >
+                                                            {analyzing[candidate.id] ? (
+                                                                <>
+                                                                    <Loader2 className="w-3 h-3 animate-spin" /> Analyzing...
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Sparkles className="w-3 h-3" /> Generate AI Insight
+                                                                </>
+                                                            )}
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="bg-neutral-50 dark:bg-neutral-950 rounded-lg p-3 text-sm text-neutral-600 dark:text-neutral-400 min-h-[80px] border border-neutral-100 dark:border-neutral-800 text-ellipsis overflow-hidden relative">
                                         {candidate.submissionDescription ? (
