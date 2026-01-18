@@ -211,6 +211,10 @@ const Onboarding = () => {
             // 2. Save Detailed Profile to Backend
             await axios.post(`${import.meta.env.VITE_SERVER_API}/api/user/onboarding`, {
                 clerkId: user.id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.primaryEmailAddress?.emailAddress,
+                imageUrl: user.imageUrl,
                 ...backendPayload
             })
 

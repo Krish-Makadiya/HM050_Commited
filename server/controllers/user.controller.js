@@ -10,6 +10,10 @@ export const onboardingController = async (req, res) => {
             companies,
             countries,
             clerkId,
+            firstName,
+            lastName,
+            email,
+            imageUrl,
         } = req.body;
 
         if (!clerkId) {
@@ -24,6 +28,10 @@ export const onboardingController = async (req, res) => {
                 skills,
                 companies,
                 countries,
+                firstName,
+                lastName,
+                email,
+                imageUrl,
             },
             { merge: true },
         );
@@ -31,10 +39,9 @@ export const onboardingController = async (req, res) => {
         console.log("Onboarding Data:", {
             role,
             experienceLevel,
-            jobTypes,
-            skills,
-            companies,
-            countries,
+            firstName,
+            lastName,
+            email,
         });
         res.json({ message: "User onboarding successful" });
     } catch (error) {

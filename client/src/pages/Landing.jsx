@@ -58,35 +58,35 @@ const Landing = () => {
     const testimonials = [
         {
             name: "Sarah Chen",
-            role: "Product Manager",
-            company: "Salesforce",
+            role: "Senior Fullstack Developer",
+            company: "Freelancer",
             rating: 5,
             image: "https://i.pravatar.cc/150?u=sarah",
-            testimonial: "The Smart Resume Tailoring feature is a game-changer! I used to spend hours tweaking my CV, but SoHired did it in seconds. I got callbacks from 3 top-tier tech companies within a week."
+            testimonial: "The auto-generated smart contracts gave me total peace of mind. I know exactly when and how much I'll get paid. No more chasing clients for invoices!"
         },
         {
             name: "Michael Ross",
-            role: "Frontend Engineer",
-            company: "Google",
+            role: "CTO",
+            company: "TechFlow Inc.",
             rating: 5,
             image: "https://i.pravatar.cc/150?u=michael",
-            testimonial: "The interview intelligence tool helped me crack the behavioral round which I always struggled with. Real-time feedback on my answers gave me the confidence I needed."
+            testimonial: "Hiring here is a breeze. The task-based roadmap feature ensures I only release funds when specific milestones are met. It's fair, transparent, and efficient."
         },
         {
             name: "Emily Rodriguez",
-            role: "Data Scientist",
-            company: "Amazon",
+            role: "UI/UX Designer",
+            company: "Freelancer",
             rating: 5,
             image: "https://i.pravatar.cc/150?u=emily",
-            testimonial: "I utilized the Skill Gap Analysis to identify exactly what I was missing. The roadmap suggested specific projects, and after completing them, I landed my dream role at Amazon."
+            testimonial: "Getting my skills verified with badges boosted my profile visibility instantly. I received 3 project invites in my first week without even sending a proposal."
         },
         {
             name: "David Park",
-            role: "UX Designer",
-            company: "Airbnb",
+            role: "Product Owner",
+            company: "StartupX",
             rating: 5,
             image: "https://i.pravatar.cc/150?u=david",
-            testimonial: "The Unified Tracker kept me sane during my job hunt. Visualizing my pipeline helped me stay organized and follow up at the right times. Highly recommend to any serious job seeker."
+            testimonial: "The best platform for finding specialized talent. The AI matching is spot on—I found a developer who had the exact niche experience I needed for my fintech app."
         }
     ]
 
@@ -108,10 +108,10 @@ const Landing = () => {
             <div className="py-20 lg:py-32 max-w-7xl mx-auto px-6 lg:px-8">
                 <div className="text-center mb-16">
                     <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-light-primary-text dark:text-dark-primary-text mb-4">
-                        Loved by <span className="text-light-primary dark:text-dark-primary">thousands</span> of job seekers
+                        Trusted by <span className="text-light-primary dark:text-dark-primary">Top Developers</span> and Innovative Companies
                     </h2>
                     <p className="text-lg text-light-secondary-text dark:text-dark-secondary-text max-w-2xl mx-auto">
-                        Don't just take our word for it. See what others are saying about their success with SoHired.
+                        Join thousands of freelancers and founders building the future together. See why they choose SoHired.
                     </p>
                 </div>
                 <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-2">

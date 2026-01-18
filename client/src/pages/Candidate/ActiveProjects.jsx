@@ -1,25 +1,157 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/ui/dialog";
 import { Input } from "@/ui/input";
 import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/ui/card";
+import { Card, CardContent } from "@/ui/card";
 import { Button } from "@/ui/button";
 import { Badge } from "@/ui/badge";
 import { Progress } from "@/ui/progress";
-import { Clock, FileCheck, UploadCloud, AlertCircle, Loader2, DollarSign, MessageCircle, Send } from "lucide-react";
+import { Checkbox } from "@/ui/checkbox";
+import { Clock, FileCheck, UploadCloud, Loader2, DollarSign, MessageCircle, Send, FileText, Calendar, Building2, Info } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import axios from 'axios';
 import { formatDistanceToNow } from 'date-fns';
+import { ScrollArea } from "@/ui/scroll-area";
+import { Separator } from "@/ui/separator";
+
+const mockTasks = [
+    { description: "Initial Research & Wireframing", payout: "20%" },
+    { description: "Frontend Development", payout: "40%" },
+    { description: "Backend Integration", payout: "40%" },
+];
+
+const ProjectCard = ({ project, onViewContract, onOpenChat }) => {
+    const navigate = useNavigate();
+    const tasks = project.tasks && project.tasks.length > 0 ? project.tasks : mockTasks;
+
+    // Initialize task completion state (default to false unless status implies done)
+    const [completedTasks, setCompletedTasks] = useState(
+        new Array(tasks.length).fill(project.status === 'Work Submitted' || project.status === 'Hired')
+    );
+
+    const handleTaskToggle = (index) => {
+        const newCompleted = [...completedTasks];
+        newCompleted[index] = !newCompleted[index];
+        setCompletedTasks(newCompleted);
+    };
+
+    const allTasksCompleted = completedTasks.every(Boolean);
+
+    return (
+        <Card className="overflow-hidden border-l-4 border-l-blue-600 shadow-sm hover:shadow-md transition-all">
+            <div className="flex flex-col md:flex-row">
+                <div className="flex-1 p-6 space-y-6">
+                    {/* Header */}
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-2xl font-bold tracking-tight">{project.projectTitle}</h2>
+                            <Badge variant="outline" className={
+                                project.status === 'Hired' ? "border-green-200 text-green-700 bg-green-50" :
+                                    "border-indigo-200 text-indigo-700 bg-indigo-50"
+                            }>
+                                {project.status}
+                            </Badge>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                            <Building2 className="w-4 h-4" />
+                            <span className="font-medium">{project.company}</span>
+                            <span>•</span>
+                            <span className="text-xs">ID: {project.id.slice(0, 8)}</span>
+                        </div>
+                    </div>
+
+                    {/* Meta Data */}
+                    <div className="flex flex-wrap gap-4 text-sm bg-neutral-50 dark:bg-neutral-900/50 p-3 rounded-lg border">
+                        <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-orange-500" />
+                            <span className="text-muted-foreground">Started: </span>
+                            <span className="font-medium">{project.sentDate ? formatDistanceToNow(new Date(project.sentDate), { addSuffix: true }) : 'Recently'}</span>
+                        </div>
+                        <div className="w-[1px] h-4 bg-neutral-300 dark:bg-neutral-700 self-center hidden sm:block"></div>
+                        <div className="flex items-center gap-2">
+                            <DollarSign className="w-4 h-4 text-green-600" />
+                            <span className="text-muted-foreground">Budget: </span>
+                            <span className="font-medium">{project.bidAmount}</span>
+                        </div>
+                    </div>
+
+                    {/* Todo List / Tasks */}
+                    <div className="space-y-3">
+                        <h4 className="text-sm font-semibold flex items-center gap-2 text-primary">
+                            <FileCheck className="w-4 h-4" /> Project Tasks & Milestones
+                        </h4>
+                        <div className="space-y-2 border rounded-lg p-2 bg-white dark:bg-black">
+                            {tasks.map((task, i) => (
+                                <div key={i} className="flex items-start space-x-3 p-2 hover:bg-neutral-50 dark:hover:bg-neutral-900 rounded-md transition-colors">
+                                    <Checkbox
+                                        id={`task-${project.id}-${i}`}
+                                        checked={completedTasks[i]}
+                                        onCheckedChange={() => handleTaskToggle(i)}
+                                    />
+                                    <div className="grid gap-1.5 leading-none flex-1">
+                                        <label
+                                            htmlFor={`task-${project.id}-${i}`}
+                                            className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer ${completedTasks[i] ? 'line-through text-muted-foreground' : ''}`}
+                                        >
+                                            {task.description}
+                                        </label>
+                                        <p className="text-xs text-muted-foreground">
+                                            Payout Release: {task.payout}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground px-1">
+                            <span>{completedTasks.filter(Boolean).length} of {tasks.length} tasks completed</span>
+                            <span>{Math.round((completedTasks.filter(Boolean).length / tasks.length) * 100)}% Progress</span>
+                        </div>
+                        <Progress value={(completedTasks.filter(Boolean).length / tasks.length) * 100} className="h-2" />
+                    </div>
+                </div>
+
+                {/* Sidebar Actions */}
+                <div className="bg-neutral-50 dark:bg-neutral-900/40 p-6 flex flex-col gap-3 min-w-[260px] border-t md:border-t-0 md:border-l justify-center">
+                    <Button
+                        className={`w-full gap-2 transition-all ${allTasksCompleted ? "animate-pulse" : "opacity-80"}`}
+                        onClick={() => navigate(`/dashboard/submit-work/${project.jobId}`)}
+                        disabled={!allTasksCompleted}
+                    >
+                        {allTasksCompleted ? <UploadCloud className="w-4 h-4" /> : <Info className="w-4 h-4" />}
+                        {allTasksCompleted ? "Submit Final Work" : "Complete All Tasks"}
+                    </Button>
+
+                    <p className="text-[10px] text-center text-muted-foreground leading-tight px-2">
+                        {allTasksCompleted
+                            ? "All tasks checked. You can now submit your work for review."
+                            : "Please mark all tasks as completed to unlock submission."}
+                    </p>
+
+                    <Separator className="my-2" />
+
+                    <Button variant="outline" className="w-full gap-2" onClick={() => onOpenChat(project)}>
+                        <MessageCircle className="w-4 h-4" /> Chat Recruiter
+                    </Button>
+                    <Button variant="ghost" className="w-full gap-2" onClick={() => onViewContract(project)}>
+                        <FileText className="w-4 h-4" /> View Contract
+                    </Button>
+                </div>
+            </div>
+        </Card>
+    );
+};
 
 const ActiveProjects = () => {
-    const navigate = useNavigate();
     const { user } = useUser();
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Chat State
+    // Dialog States
     const [chatOpen, setChatOpen] = useState(false);
-    const [activeChatProject, setActiveChatProject] = useState(null);
+    const [contractOpen, setContractOpen] = useState(false);
+    const [activeProject, setActiveProject] = useState(null);
+
+    // Chat logic
     const [messageInput, setMessageInput] = useState("");
     const [messages, setMessages] = useState([
         { sender: 'recruiter', text: "Hi there! Let me know if you have any questions about the milestones." }
@@ -29,56 +161,13 @@ const ActiveProjects = () => {
         const fetchActiveProjects = async () => {
             if (!user) return;
             try {
-                // Fetch applications where user is Hired or doing work (logic can come from filtered applications)
-                // Reusing getCandidateApplicationsController but filtering on frontend for specific status
                 const response = await axios.get(`${import.meta.env.VITE_SERVER_API}/api/jobs/applications/${user.id}`);
                 const allApps = response.data.applications;
-
-                // Filter for "Hired" or "Work Submitted" or even "Shortlisted" if that counts as active for user
-                // Based on prompt "tasks which are being planned while the time of job creation by the recruiter"
-                // This implies "Active" means user is working on it.
-                // We'll also need to fetch the JOB DETAILS which now include TASKS.
-                // The current endpoint returns job info, but maybe not the full tasks array.
-                // Let's assume unique call or we enhance the previous controller.
-                // For now, let's fetch individual job details for the filtered list if needed, or 
-                // just trust the previous endpoint if updated. 
-                // Wait, I didn't update the previous endpoint to return `tasks`.
-                // I should probably fetch job details for each "active" project.
-
                 const activeApps = allApps.filter(app => ["Hired", "Work Submitted", "Shortlisted", "Interview"].includes(app.status));
 
-                const projectsWithTasks = await Promise.all(activeApps.map(async (app) => {
-                    const jobRes = await axios.get(`${import.meta.env.VITE_SERVER_API}/api/jobs/${app.jobId}/applicants`);
-                    // Wait, I need job details, not applicants.
-                    // There isn't a simple "getJobById" public endpoint exposed in the summary, but let's check `getAllAvailableJobs` or similiar?
-                    // Actually `getCandidateApplicationsController` returns basic job info.
-                    // I will create a small helper:
-                    // But wait, the user wants to see "tasks which are being planned".
-                    // Let's assume the recruiter posted them.
-                    // We need to fetch the Job Document to get the `tasks` array.
-                    // I'll assume we can't easily get it from the existing endpoint without modification.
-
-                    // For this step, I'll simulate or try to fetch if a route exists.
-                    // Actually, `getRecruiterJobs` gets jobs, maybe I can use a direct firestore fetch or add a route?
-                    // NO, I should stick to existing patterns.
-                    // Let's modify `getCandidateApplicationsController` in next turn if needed, but for now I'll try to fetch job by ID if a route exists or just mock if not.
-                    // I will try to hit `/api/jobs/feed/:clerkId`... no that's feed.
-
-                    // I will just use the `applications` endpoint and assume I need to update it to return `tasks`.
-                    // I will update the controller in a separate valid step later if needed.
-                    // For now, let's just scaffold the view assuming tasks are present or will be.
-
-                    // Actually, I can fetch from the `jobs` collection if I had a route `GET /api/jobs/:jobId`.
-                    // The summary didn't explicitly show a single job fetcher.
-                    // I will create a cleaner implementation.
-
-                    // Let's fetch the applications, and for each, I'll display tasks if available (mocked for now if backend misses it, but I'll write code to expect it).
-
-                    return {
-                        ...app,
-                        tasks: app.tasks || [], // We need backend to send this
-                        progress: app.status === 'Hired' ? 100 : (app.status === 'Work Submitted' ? 80 : 20), // Proxy progress
-                    };
+                const projectsWithTasks = activeApps.map(app => ({
+                    ...app,
+                    tasks: app.tasks || [],
                 }));
 
                 setProjects(projectsWithTasks);
@@ -92,25 +181,20 @@ const ActiveProjects = () => {
         fetchActiveProjects();
     }, [user]);
 
-
-    // Temporary Mocking for the UI request until backend sends tasks
-    // The user wants to see dynamic tasks.
-    const mockTasks = [
-        { description: "Initial Research & Wireframing", payout: "20%" },
-        { description: "Frontend Development", payout: "40%" },
-        { description: "Backend Integration", payout: "40%" },
-    ];
-
-    const openChat = (project) => {
-        setActiveChatProject(project);
+    const handleOpenChat = (project) => {
+        setActiveProject(project);
         setChatOpen(true);
+    };
+
+    const handleViewContract = (project) => {
+        setActiveProject(project);
+        setContractOpen(true);
     };
 
     const sendMessage = () => {
         if (!messageInput.trim()) return;
         setMessages([...messages, { sender: 'me', text: messageInput }]);
         setMessageInput("");
-        // Simulate reply
         setTimeout(() => {
             setMessages(prev => [...prev, { sender: 'recruiter', text: "Thanks for the update! I'll review it shortly." }]);
         }, 1500);
@@ -125,120 +209,146 @@ const ActiveProjects = () => {
     }
 
     return (
-        <div className="p-6 md:p-8 space-y-6 animate-in fade-in duration-500">
-            <div>
+        <div className="p-6 md:p-8 space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto">
+            <div className="flex flex-col gap-2">
                 <h1 className="text-3xl font-bold tracking-tight">Active Projects</h1>
-                <p className="text-muted-foreground">Track your ongoing work, tasks, and earnings.</p>
+                <p className="text-muted-foreground text-lg">Manage your ongoing freelance contracts and track progress.</p>
             </div>
 
-            <div className="space-y-6">
+            <div className="grid grid-cols-1 gap-6">
                 {projects.length === 0 ? (
-                    <div className="text-center py-20 text-muted-foreground">
-                        <p>No active projects found.</p>
-                        <Button variant="link" asChild className="mt-2">
-                            <a href="/dashboard">Find Projects</a>
+                    <div className="flex flex-col items-center justify-center py-20 bg-muted/30 rounded-xl border border-dashed">
+                        <div className="p-4 bg-muted rounded-full mb-4">
+                            <FileText className="w-8 h-8 text-muted-foreground" />
+                        </div>
+                        <h3 className="text-xl font-semibold">No active projects</h3>
+                        <p className="text-muted-foreground mt-2 max-w-md text-center">You haven't been hired for any projects yet. Keep applying to jobs!</p>
+                        <Button variant="default" asChild className="mt-6">
+                            <a href="/dashboard">Find Work</a>
                         </Button>
                     </div>
                 ) : (
                     projects.map((project) => (
-                        <Card key={project.id} className="overflow-hidden">
-                            <div className="flex flex-col md:flex-row">
-                                <div className="flex-1 p-6 space-y-4">
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-2">
-                                            <h2 className="text-xl font-bold">{project.projectTitle}</h2>
-                                            <Badge variant="outline" className={
-                                                project.status === 'Hired' ? "border-green-200 text-green-700 bg-green-50" :
-                                                    "border-indigo-200 text-indigo-700 bg-indigo-50"
-                                            }>
-                                                {project.status}
-                                            </Badge>
-                                        </div>
-                                        <p className="text-muted-foreground text-sm">for {project.company}</p>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mt-4">
-                                        <div className="flex items-center gap-2">
-                                            <Clock className="w-4 h-4 text-orange-500" />
-                                            <span className="font-medium">Applied: {project.sentDate ? formatDistanceToNow(new Date(project.sentDate), { addSuffix: true }) : 'N/A'}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <FileCheck className="w-4 h-4 text-blue-500" />
-                                            <span>Start: {project.jobStatus}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <h4 className="text-sm font-semibold flex items-center gap-2">
-                                            <DollarSign className="w-4 h-4" /> Tasks & Milestones
-                                        </h4>
-                                        <div className="space-y-2">
-                                            {/* Ideally `project.tasks` comes from backend. Using mock if empty to demonstrate UI requested by user */}
-                                            {(project.tasks && project.tasks.length > 0 ? project.tasks : mockTasks).map((task, i) => (
-                                                <div key={i} className="flex justify-between items-center text-sm p-2 bg-neutral-100 dark:bg-neutral-800/50 rounded-md">
-                                                    <span>{task.description}</span>
-                                                    <Badge variant="secondary">{task.payout}</Badge>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-2 pt-2">
-                                        <div className="flex justify-between text-xs text-muted-foreground">
-                                            <span>Completion Estimate</span>
-                                            <span>{project.progress}%</span>
-                                        </div>
-                                        <Progress value={project.progress} className="h-1.5" />
-                                    </div>
-                                </div>
-
-                                <div className="bg-neutral-50 dark:bg-neutral-900 p-6 flex flex-col justify-center items-start md:items-end gap-3 min-w-[250px] border-t md:border-t-0 md:border-l">
-                                    <div className="text-sm font-medium text-muted-foreground mb-2">Total Value: {project.bidAmount}</div>
-                                    <Button className="w-full md:w-auto gap-2" onClick={() => navigate(`/dashboard/submit-work/${project.jobId}`)}>
-                                        <UploadCloud className="w-4 h-4" />
-                                        Update Progress
-                                    </Button>
-                                    <Button variant="outline" className="w-full md:w-auto gap-2 text-xs" onClick={() => openChat(project)}>
-                                        <MessageCircle className="w-4 h-4" /> Chat with Recruiter
-                                    </Button>
-                                    <Button variant="ghost" className="w-full md:w-auto text-xs h-8">View Contract</Button>
-                                </div>
-                            </div>
-                        </Card>
+                        <ProjectCard
+                            key={project.id}
+                            project={project}
+                            onOpenChat={handleOpenChat}
+                            onViewContract={handleViewContract}
+                        />
                     ))
                 )}
             </div>
 
             {/* Chat Dialog */}
             <Dialog open={chatOpen} onOpenChange={setChatOpen}>
-                <DialogContent className="sm:max-w-[425px]">
+                <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            <MessageCircle className="w-5 h-5" /> Chat with {activeChatProject?.company}
+                            <MessageCircle className="w-5 h-5 text-primary" />
+                            Chat with {activeProject?.company}
                         </DialogTitle>
+                        <DialogDescription>Direct message connection provided by SoHired.</DialogDescription>
                     </DialogHeader>
-                    <div className="h-[300px] flex flex-col border rounded-md p-4 bg-muted/20">
-                        <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-2">
+                    <div className="h-[400px] flex flex-col border rounded-lg bg-neutral-50 dark:bg-neutral-900/50 mt-2">
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
                             {messages.map((msg, i) => (
                                 <div key={i} className={`flex ${msg.sender === 'me' ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-[80%] rounded-lg p-3 text-sm ${msg.sender === 'me' ? 'bg-primary text-primary-foreground' : 'bg-white dark:bg-neutral-800 border'}`}>
+                                    <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm shadow-sm ${msg.sender === 'me' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white dark:bg-neutral-800 border rounded-bl-none'}`}>
                                         {msg.text}
                                     </div>
                                 </div>
                             ))}
                         </div>
-                        <div className="flex gap-2">
-                            <Input
-                                placeholder="Type a message..."
-                                value={messageInput}
-                                onChange={(e) => setMessageInput(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                            />
-                            <Button size="icon" onClick={sendMessage}>
-                                <Send className="w-4 h-4" />
-                            </Button>
+                        <div className="p-3 bg-background border-t">
+                            <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); sendMessage(); }}>
+                                <Input
+                                    placeholder="Type your message..."
+                                    value={messageInput}
+                                    onChange={(e) => setMessageInput(e.target.value)}
+                                    className="flex-1"
+                                />
+                                <Button type="submit" size="icon">
+                                    <Send className="w-4 h-4" />
+                                </Button>
+                            </form>
                         </div>
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Contract Dialog */}
+            <Dialog open={contractOpen} onOpenChange={setContractOpen}>
+                <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col p-0 gap-0">
+                    <DialogHeader className="p-6 pb-2">
+                        <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+                            <FileText className="w-6 h-6 text-primary" /> Project Contract
+                        </DialogTitle>
+                        <DialogDescription>
+                            Official agreement for {activeProject?.projectTitle}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {activeProject && (
+                        <ScrollArea className="flex-1 px-6 py-2">
+                            <div className="space-y-6 text-sm">
+                                <section className="space-y-3 bg-muted/30 p-4 rounded-lg border">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <span className="text-xs text-muted-foreground uppercase font-bold">Client</span>
+                                            <p className="font-medium text-base">{activeProject.company}</p>
+                                        </div>
+                                        <div>
+                                            <span className="text-xs text-muted-foreground uppercase font-bold">Freelancer</span>
+                                            <p className="font-medium text-base">{user?.fullName || "You"}</p>
+                                        </div>
+                                        <div>
+                                            <span className="text-xs text-muted-foreground uppercase font-bold">Start Date</span>
+                                            <p>{activeProject.sentDate ? new Date(activeProject.sentDate).toLocaleDateString() : "Immediate"}</p>
+                                        </div>
+                                        <div>
+                                            <span className="text-xs text-muted-foreground uppercase font-bold">Total Budget</span>
+                                            <p className="font-mono">{activeProject.bidAmount}</p>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section className="space-y-2">
+                                    <h4 className="font-semibold text-lg border-b pb-1">Scope of Work</h4>
+                                    <p className="text-muted-foreground leading-relaxed">
+                                        {activeProject.description || "The freelancer agrees to deliver the milestones as outlined in the initial job posting. All work must be original and meet the quality standards of the client."}
+                                    </p>
+                                </section>
+
+                                <section className="space-y-2">
+                                    <h4 className="font-semibold text-lg border-b pb-1">Milestones & Deliverables</h4>
+                                    <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                                        {(activeProject.tasks && activeProject.tasks.length > 0 ? activeProject.tasks : mockTasks).map((task, i) => (
+                                            <li key={i}>
+                                                <span className="font-medium text-foreground">{task.description}</span> - <span className="text-xs bg-muted px-2 py-0.5 rounded">{task.payout} Payout</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </section>
+
+                                <section className="space-y-2">
+                                    <h4 className="font-semibold text-lg border-b pb-1">Terms & Conditions</h4>
+                                    <p className="text-xs text-muted-foreground text-justify">
+                                        1. <strong>Confidentiality:</strong> Both parties agree to keep all project details confidential.<br />
+                                        2. <strong>Payment:</strong> Payment will be released upon successful completion of milestones as verified by the client.<br />
+                                        3. <strong>Termination:</strong> This contract may be terminated by either party with 7 days written notice, subject to payment for work already completed.<br />
+                                        4. <strong>Ownership:</strong> Upon full payment, all intellectual property rights for the deliverables shall transfer to the Client.
+                                    </p>
+                                </section>
+                            </div>
+                        </ScrollArea>
+                    )}
+
+                    <DialogFooter className="p-6 pt-2 border-t mt-4 flex justify-between sm:justify-between items-center bg-muted/10">
+                        <p className="text-[10px] text-muted-foreground">
+                            Digital Signature ID: {activeProject?.id}
+                        </p>
+                        <Button onClick={() => setContractOpen(false)}>Close Contract</Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

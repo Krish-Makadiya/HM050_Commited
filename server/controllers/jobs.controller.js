@@ -1,4 +1,5 @@
 import { db } from "../config/firebase.js";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const getAllJobs = async (req, res) => {
     try {
@@ -598,6 +599,80 @@ export const submitWorkController = async (req, res) => {
         res.status(500).json({
             message: "Failed to submit work",
             error: error.message,
+        });
+    }
+};
+
+export const analyzeSubmissionController = async (req, res) => {
+    try {
+        const { jobId, applicantId } = req.params;
+
+        if (!jobId || !applicantId) {
+            return res.status(400).json({ message: "Job ID and Applicant ID are required" });
+        }
+
+        // 1. Fetch Job and Applicant Data
+        const jobRef = db.collection("jobs").doc(jobId);
+        const applicantRef = jobRef.collection("applicants").doc(applicantId);
+
+        const [jobDoc, applicantDoc] = await Promise.all([
+            jobRef.get(),
+            applicantRef.get()
+        ]);
+
+        if (!jobDoc.exists) return res.status(404).json({ message: "Job not found" });
+        if (!applicantDoc.exists) return res.status(404).json({ message: "Applicant not found" });
+
+        const jobData = jobDoc.data();
+        const applicantData = applicantDoc.data();
+
+        // 2. Prepare Gemini Prompt
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({
+            model: "gemini-flash-latest",
+            generationConfig: { responseMimeType: "application/json" }
+        });
+
+        const prompt = `
+        You are an expert technical recruiter and lead designer. Analyze the provided project submission against the company's requirements.
+        
+        Job Title: ${jobData.title}
+        Job Description: ${jobData.description}
+        Skills Required: ${jobData.skills ? jobData.skills.join(", ") : "N/A"}
+
+        Applicant Submission:
+        Link: ${applicantData.submissionLink}
+        Description: ${applicantData.submissionDescription}
+
+        Evaluate for technical alignment, creativity, and adherence to timelines (if mentioned).
+        
+        Return a CLEAN JSON object with:
+        - score: Integer (1-10)
+        - summary: Exactly 2 sentences explaining the score.
+        - pros: A list of 2 key strengths.
+        `;
+
+        // 3. Call Gemini
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text();
+        const aiAnalysis = JSON.parse(responseText);
+
+        // 4. Save to Firestore
+        await applicantRef.update({
+            aiScore: aiAnalysis.score,
+            aiSummary: aiAnalysis.summary,
+            aiPros: aiAnalysis.pros,
+            aiAnalyzedAt: new Date().toISOString()
+        });
+
+        // 5. Respond
+        res.status(200).json(aiAnalysis);
+
+    } catch (error) {
+        console.error("Error analyzing submission:", error);
+        res.status(500).json({
+            message: "AI Analysis failed",
+            error: error.message
         });
     }
 };

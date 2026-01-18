@@ -194,7 +194,7 @@ function HeroGeometric({
                     <motion.div custom={2} variants={fadeUpVariants} initial="hidden" animate="visible">
                         <p
                             className="text-base sm:text-lg md:text-xl text-light-secondary-text/80 dark:text-dark-secondary-text/80 mb-8 leading-relaxed font-light tracking-wide max-w-3xl mx-auto px-4">
-                            Your AI agent that auto-applies to jobs, identifies your skill gaps, and preps you for interviews. Stop guessing and start working.
+                            The freelance marketplace where contracts are secure, payouts are guaranteed, and work is task-based. No more chasing clients for payments—just focus on delivering your best code.
                         </p>
                     </motion.div>
                 </div>

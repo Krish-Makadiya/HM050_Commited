@@ -1,56 +1,44 @@
 import { cn } from "@/lib/utils";
 import {
-  Bot,
-  TrendingUp,
-  FileText,
-  Mic,
-  Activity,
-  LayoutDashboard,
-  Globe,
-  Percent
+  Lock,
+  ListFilter,
+  Award,
+  FileSignature,
+  MessageSquare,
+  Zap
 } from "lucide-react";
 
 export function FeaturesSectionWithHoverEffects() {
   const features = [
     {
-      title: "Automated Applications",
-      description: "Let our AI agent handle the tedious application process while you focus on prep.",
-      icon: <Bot className="w-6 h-6" />,
+      title: "Smart Job Matching",
+      description: "Get matched with projects that fit your skills perfectly, making the 'Being Applied' phase effortless.",
+      icon: <Zap className="w-6 h-6" />,
     },
     {
-      title: "Skill Gap Analysis",
-      description: "Identify exactly what skills you're missing for your dream role and how to bridge them.",
-      icon: <TrendingUp className="w-6 h-6" />,
+      title: "Swift Proposals",
+      description: "Send detailed proposals and communicate directly with recruiters to get 'Selected' faster.",
+      icon: <MessageSquare className="w-6 h-6" />,
     },
     {
-      title: "Smart Resume Tailoring",
-      description: "Automatically tailor your resume for every single job description to increase acceptance rates.",
-      icon: <FileText className="w-6 h-6" />,
+      title: "Instant Contracts",
+      description: "Auto-generated contracts ensure you are legally secured the moment you are 'Selected'.",
+      icon: <FileSignature className="w-6 h-6" />,
     },
     {
-      title: "Interview Intelligence",
-      description: "Practice with AI-driven mock interviews that give you real-time feedback on your answers.",
-      icon: <Mic className="w-6 h-6" />,
+      title: "Secure Escrow",
+      description: "Funds are locked in escrow upfront, guaranteeing payout when the work is 'Done'.",
+      icon: <Lock className="w-6 h-6" />,
     },
     {
-      title: "Market Pulse",
-      description: "Stay ahead with real-time insights on salary trends and hiring demands for your role.",
-      icon: <Activity className="w-6 h-6" />,
+      title: "Task Roadmaps",
+      description: "Work is broken into clear tasks and milestones, so everyone knows what is 'Being Done'.",
+      icon: <ListFilter className="w-6 h-6" />,
     },
     {
-      title: "Unified Tracker",
-      description: "Visualize your entire job hunt pipeline in one intuitive, automated dashboard.",
-      icon: <LayoutDashboard className="w-6 h-6" />,
-    },
-    {
-      title: "Sponsorship Filter",
-      description: "Instantly filter and identify jobs that explicitly support visa sponsorship.",
-      icon: <Globe className="w-6 h-6" />,
-    },
-    {
-      title: "Smart Match Score",
-      description: "Know your probability of getting hired before you even apply with our AI scoring.",
-      icon: <Percent className="w-6 h-6" />,
+      title: "Verified Completion",
+      description: "Earn verified badges and reviews immediately after your work is marked 'Done' and approved.",
+      icon: <Award className="w-6 h-6" />,
     },
   ];
 
@@ -64,7 +52,7 @@ export function FeaturesSectionWithHoverEffects() {
           From application to offer letter, SoHired provides an end-to-end toolkit to supercharge your career journey.
         </p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 relative z-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 relative z-10">
         {features.map((feature, index) => (
           <Feature key={feature.title} {...feature} index={index} />
         ))}

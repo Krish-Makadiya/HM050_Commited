@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { useInView, useMotionValue, useSpring } from "framer-motion";
 
 
-const Counter = ({ value, suffix = "", className }) => {
+const Counter = ({ value, prefix = "", suffix = "", className }) => {
     const ref = useRef(null);
     const motionValue = useMotionValue(0);
     const springValue = useSpring(motionValue, {
@@ -22,21 +22,21 @@ const Counter = ({ value, suffix = "", className }) => {
     useEffect(() => {
         springValue.on("change", (latest) => {
             if (ref.current) {
-                ref.current.textContent = Intl.NumberFormat("en-US").format(
+                ref.current.textContent = prefix + Intl.NumberFormat("en-US").format(
                     Math.floor(latest)
                 ) + suffix;
             }
         });
-    }, [springValue, suffix]);
+    }, [springValue, prefix, suffix]);
 
     return <span ref={ref} className={className} />;
 };
 
 export const StatsCounter = () => {
     const stats = [
-        { label: "Jobs Scraped", value: 12405, suffix: "" },
-        { label: "Skill Gaps Closed", value: 850, suffix: "" },
-        { label: "Hours Saved", value: 5000, suffix: "+" },
+        { label: "Escrow Secured", value: 25000, prefix: "$", suffix: "+" },
+        { label: "Tasks Completed", value: 32, prefix: "", suffix: "+" },
+        { label: "Active Contracts", value: 12, prefix: "", suffix: "" },
     ];
 
     return (
@@ -51,6 +51,7 @@ export const StatsCounter = () => {
                             <div className="flex items-baseline gap-1 relative z-20">
                                 <Counter
                                     value={stat.value}
+                                    prefix={stat.prefix}
                                     suffix={stat.suffix}
                                     className="text-6xl md:text-7xl font-bold tracking-tighter text-light-primary-text dark:text-dark-primary-text group-hover:scale-110 transition-transform duration-500 ease-out"
                                 />
