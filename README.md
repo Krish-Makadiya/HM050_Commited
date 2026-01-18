@@ -27,12 +27,12 @@ SoHired is a modern, AI-enhanced recruitment platform designed to bridge the gap
 
 ---
 ## *🌍 Deployed URL*
-🔗 **[Live Demo Link (Placeholder)]https://so-hired-commited-gfg-pccoe.vercel.app/
+🔗 Live Demo Link: https://so-hired-commited-gfg-pccoe.vercel.app/
 
 ---
 
 ## *🎥 Demo Video*
-📽️ **[Watch the Walkthrough]https://drive.google.com/file/d/1cfY22CRpX7jXh92ncrW1haP6agj9ixS7/view?usp=drive_link
+📽️ Watch the Walkthrough: https://drive.google.com/file/d/1cfY22CRpX7jXh92ncrW1haP6agj9ixS7/view?usp=drive_link
 
 ---
 
@@ -45,7 +45,7 @@ SoHired is a modern, AI-enhanced recruitment platform designed to bridge the gap
 - *Storage:* Local Storage (Demo) / Firebase Storage (Prod)  
 - *Authentication:* Clerk  
 
----
+
 
 ## *🚀 Upcoming Features*
 
@@ -55,7 +55,7 @@ SoHired is a modern, AI-enhanced recruitment platform designed to bridge the gap
 🔹 *Payment Gateway Integration:* Secure processing for premium features.  
 🔹 *Multi-tenant ATS:* Organization-level hiring pipelines.  
 🔹*Smart Compensation Helper:* Automated salary benchmarking and offer management.
----
+
 
 ## *📖 How to Fork/Clone the Project?*
 
@@ -67,16 +67,16 @@ SoHired is a modern, AI-enhanced recruitment platform designed to bridge the gap
    
 3. *Install Dependencies*
    bash
-   # Client
+   ### Client
    cd client && npm install
-   # Server
+   ### Server
    cd ../server && npm install
    
 4. *Run Locally*
    bash
-   # Start Client
+   ### Start Client
    npm run dev
-   # Start Server
+   ### Start Server
    npm start
    
 
@@ -87,17 +87,16 @@ If you have any questions, feedback, or issues, feel free to reach out to us.
 
 *👨‍💻 Our Team*
 
-*[Krish Makadiya]*  
+Krish Makadiya  
 📧 krishmakadiya2005@gmail.com
 🔗 [GitHub](https://github.com/Krish-Makadiya)
 
-[Tanishq Jain]* 
-  
+Tanishq Jain  
 📧 tanishqjain3011@gmail.com
 🔗 [GitHub](https://github.com/Tanishq-j)
 
-[Harshal Bavadekar]* 
-📧  harshalshetebavadekar@gmail.com
+Harshal Bavadekar
+📧 harshalshetebavadekar@gmail.com
 🔗 [GitHub](https://github.com/Harshal7890)
 ---
 
