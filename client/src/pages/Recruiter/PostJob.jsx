@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import { CalendarIcon, Loader2, DollarSign, Clock, Code2, FileText, UploadCloud, Trash2, Plus } from "lucide-react";
 import axios from 'axios';
 import { useUser } from '@clerk/clerk-react';
+import { Checkbox } from "@/ui/checkbox";
 
 const PostJob = () => {
     const navigate = useNavigate();
@@ -30,7 +31,8 @@ const PostJob = () => {
         techStack: "",
         description: "",
         budget: "",
-        deliverables: ""
+        deliverables: "",
+        blindHiring: false
     });
 
     const [tasks, setTasks] = useState([{ description: "", payout: "" }]);
@@ -48,7 +50,8 @@ const PostJob = () => {
                 techStack: job.techStack || "",
                 description: job.description || "",
                 budget: job.budget || "",
-                deliverables: job.deliverables || ""
+                deliverables: job.deliverables || "",
+                blindHiring: job.blindHiring || false
             });
             if (job.deadline) {
                 setDate(new Date(job.deadline));
@@ -186,6 +189,25 @@ const PostJob = () => {
                                     onChange={handleInputChange}
                                 />
                                 <p className="text-xs text-muted-foreground">Separate technologies with commas.</p>
+                            </div>
+
+                            <div className="flex items-start space-x-3 p-4 border border-indigo-100 dark:border-indigo-900/30 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-lg">
+                                <Checkbox
+                                    id="blindHiring"
+                                    checked={formData.blindHiring}
+                                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, blindHiring: checked }))}
+                                />
+                                <div className="grid gap-1.5 leading-none">
+                                    <Label
+                                        htmlFor="blindHiring"
+                                        className="text-sm font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-indigo-900 dark:text-indigo-100"
+                                    >
+                                        Enable Blind Hiring Mode
+                                    </Label>
+                                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                                        Mask candidate personal details (Name, Email, etc.) to delete bias. Information is revealed only upon hiring.
+                                    </p>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>

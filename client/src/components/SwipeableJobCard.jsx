@@ -2,7 +2,7 @@
 import { Button } from "@/ui/button";
 import { Card, CardContent, CardHeader } from "@/ui/card";
 import { motion, useMotionValue, useTransform } from "framer-motion";
-import { Building2, Calendar, CircleCheckBig, CircleX, ExternalLink, Globe, MapPin } from "lucide-react";
+import { Building2, Calendar, CircleCheckBig, CircleX, ExternalLink, Globe, MapPin, EyeOff } from "lucide-react";
 
 export function SwipeableJobCard({ job, onSwipe, style }) {
     const x = useMotionValue(0);
@@ -69,7 +69,12 @@ export function SwipeableJobCard({ job, onSwipe, style }) {
                                 <div className="h-16 w-16 rounded-2xl bg-white dark:bg-neutral-800 shadow-sm border border-neutral-100 dark:border-neutral-700 flex items-center justify-center overflow-hidden shrink-0">
                                     <Building2 className="w-8 h-8 text-neutral-400" />
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 flex-wrap justify-end">
+                                    {job.blindHiring && (
+                                        <Badge variant="outline" className="rounded-full px-3 py-1 font-medium bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300 border-purple-200 dark:border-purple-800 flex items-center gap-1">
+                                            <EyeOff className="w-3 h-3" /> Blind Mode
+                                        </Badge>
+                                    )}
                                     <Badge variant="secondary" className="rounded-full px-3 py-1 font-medium bg-white dark:bg-neutral-800 shadow-xs">
                                         {job.type || "Freelance"}
                                     </Badge>

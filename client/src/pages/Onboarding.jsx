@@ -167,7 +167,7 @@ const Onboarding = () => {
         formData.append("resume", file);
 
         try {
-            const res = await axios.post("http://localhost:5678/webhook-test/3e244d48-20a7-47a8-bed9-66a20a6f6ebe", formData, {
+            const res = await axios.post("http://localhost:5678/webhook/3e244d48-20a7-47a8-bed9-66a20a6f6ebe", formData, {
                 headers: { "Content-Type": "multipart/form-data" }
             });
 

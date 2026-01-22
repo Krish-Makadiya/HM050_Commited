@@ -834,6 +834,7 @@ export const getRecruiterActiveWorkController = async (req, res) => {
                         "Work Submitted",
                         "Interview",
                         "Hired",
+                        "Completed",
                     ])
                     .get();
 

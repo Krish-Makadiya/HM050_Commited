@@ -109,7 +109,7 @@ export function AppSidebar({ ...props }) {
                 },
                 {
                     title: "Active Projects",
-                    url: "/dashboard/recruiter/interviews",
+                    url: "/dashboard/recruiter/active-work",
                 },
             ],
         },

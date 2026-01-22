@@ -15,6 +15,7 @@ import axios from 'axios';
 import { formatDistanceToNow } from 'date-fns';
 import { ScrollArea } from "@/ui/scroll-area";
 import { Separator } from "@/ui/separator";
+import { toast } from "sonner";
 
 const mockTasks = [
     { description: "Initial Research & Wireframing", payout: "20%" },

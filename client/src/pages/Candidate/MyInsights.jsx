@@ -76,9 +76,15 @@ const MyInsights = () => {
             if (budget > 0 && app.tasks && app.taskProgress) {
                 app.tasks.forEach((task, index) => {
                     const progress = app.taskProgress[index];
-                    const payoutStr = task.payout || "0%";
-                    const payoutPercent = parseFloat(payoutStr.replace('%', '')) / 100;
-                    const amount = budget * payoutPercent;
+                    const payoutStr = task.payout ? String(task.payout) : "0";
+                    let amount = 0;
+
+                    if (payoutStr.includes('%')) {
+                        const payoutPercent = parseFloat(payoutStr.replace(/[^0-9.]/g, '')) / 100;
+                        amount = budget * payoutPercent;
+                    } else {
+                        amount = parseFloat(payoutStr.replace(/[^0-9.]/g, '')) || 0;
+                    }
 
                     if (progress?.status === 'verified') {
                         totalEarnings += amount;
