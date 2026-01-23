@@ -131,8 +131,123 @@ const PostJob = () => {
         }
     };
 
+    const [showAIModal, setShowAIModal] = useState(false);
+    const [aiIdea, setAiIdea] = useState("");
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiOptions, setAiOptions] = useState(null);
+
+    const handleAIGenerate = async () => {
+        if (!aiIdea.trim()) return;
+        setAiLoading(true);
+        try {
+            const res = await axios.post(`${import.meta.env.VITE_SERVER_API}/api/gemini/job-details`, {
+                projectIdea: aiIdea
+            });
+            if (res.data && res.data.options) {
+                setAiOptions(res.data.options);
+            }
+        } catch (err) {
+            console.error(err);
+            // toast.error("Failed to generate details");
+        } finally {
+            setAiLoading(false);
+        }
+    };
+
+    const applyAIOption = (option) => {
+        setFormData(prev => ({
+            ...prev,
+            title: option.title,
+            description: option.description,
+            techStack: option.techStack,
+            timeline: option.timeline,
+            type: option.type || "Contract",
+            budget: option.budget,
+            deliverables: "Complete source code, Deployment instructions, Documentation"
+        }));
+        
+        // Convert tasks to required format
+        if (option.tasks) {
+            setTasks(option.tasks.map(t => ({
+                description: t.description,
+                payout: t.payout
+            })));
+        }
+        setShowAIModal(false);
+    };
+
     return (
-        <div className="p-6 md:p-8 max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="p-6 md:p-8 max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
+            {/* AI Modal */}
+            {showAIModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-neutral-200 dark:border-neutral-800 flex flex-col">
+                        <div className="p-6 border-b border-neutral-200 dark:border-neutral-800 flex justify-between items-center sticky top-0 bg-white dark:bg-neutral-900 z-10">
+                            <h2 className="text-2xl font-bold">AI Project Assistant</h2>
+                            <Button variant="ghost" onClick={() => setShowAIModal(false)}>Close</Button>
+                        </div>
+                        
+                        <div className="p-6 space-y-6">
+                            {!aiOptions ? (
+                                <div className="space-y-4">
+                                    <Label>Describe your project idea roughly:</Label>
+                                    <Textarea 
+                                        placeholder="e.g. I want to build a marketplace for used books..."
+                                        className="min-h-[150px] text-lg"
+                                        value={aiIdea}
+                                        onChange={e => setAiIdea(e.target.value)}
+                                    />
+                                    <Button 
+                                        className="w-full" 
+                                        size="lg" 
+                                        onClick={handleAIGenerate} 
+                                        disabled={aiLoading}
+                                    >
+                                        {aiLoading ? <Loader2 className="animate-spin mr-2" /> : <div className="flex items-center gap-2"><div className="text-small">✨</div> Generate Options</div>}
+                                    </Button>
+                                    {aiLoading && <p className="text-center text-muted-foreground animate-pulse">Analyzing requirements and estimating costs...</p>}
+                                </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    <div className="flex justify-between items-center">
+                                        <p className="text-muted-foreground">Select an option to auto-fill the form:</p>
+                                        <Button variant="outline" onClick={() => setAiOptions(null)}>Start Over</Button>
+                                    </div>
+                                    <div className="grid md:grid-cols-3 gap-4">
+                                        {aiOptions.map((opt, idx) => (
+                                            <div key={idx} className="border border-neutral-200 dark:border-neutral-800 rounded-xl p-4 hover:border-blue-500 cursor-pointer transition-all hover:shadow-lg flex flex-col h-full bg-neutral-50/50 dark:bg-neutral-900/50" onClick={() => applyAIOption(opt)}>
+                                                <div className="mb-4">
+                                                    <h3 className="font-bold text-lg mb-1">{opt.title}</h3>
+                                                    <div className="flex items-center gap-2 text-sm text-green-600 font-medium">
+                                                        <DollarSign className="w-4 h-4" /> ${opt.budget}
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-sm text-blue-600 font-medium mt-1">
+                                                        <Clock className="w-4 h-4" /> {opt.timeline}
+                                                    </div>
+                                                </div>
+                                                <p className="text-sm text-muted-foreground mb-4 line-clamp-4">{opt.description}</p>
+                                                <div className="mt-auto pt-4 border-t border-dashed border-neutral-200 dark:border-neutral-800">
+                                                    <p className="text-xs font-semibold mb-2">Included Tasks:</p>
+                                                    <ul className="text-xs space-y-1 text-neutral-600 dark:text-neutral-400">
+                                                        {opt.tasks.slice(0, 3).map((t, i) => (
+                                                            <li key={i} className="flex justify-between">
+                                                                <span className="truncate flex-1">{t.description}</span>
+                                                            </li>
+                                                        ))}
+                                                        {opt.tasks.length > 3 && <li>+ {opt.tasks.length - 3} more...</li>}
+                                                    </ul>
+                                                    <Button className="w-full mt-4" variant="secondary">Select This</Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <Button variant="ghost" className="mb-6 pl-0 hover:bg-transparent text-muted-foreground transition-colors hover:text-foreground" onClick={() => navigate(-1)}>← Back to Dashboard</Button>
 
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
@@ -144,6 +259,11 @@ const PostJob = () => {
                         {isEditMode ? "Update your project details below." : "Define your requirements to find the perfect developer."}
                     </p>
                 </div>
+                {!isEditMode && (
+                    <Button onClick={() => setShowAIModal(true)} className="bg-linear-to-r from-indigo-600 to-purple-600 text-white border-0 shadow-lg hover:shadow-indigo-500/20 transition-all hover:scale-105">
+                        ✨ AI Assistant
+                    </Button>
+                )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

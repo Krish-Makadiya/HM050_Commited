@@ -96,6 +96,10 @@ export function AppSidebar({ ...props }) {
                     title: "Manage Jobs",
                     url: "/dashboard/recruiter/manage-jobs",
                 },
+                {
+                    title: "Project Generator",
+                    url: "/dashboard/recruiter/project-generator",
+                },
             ],
         },
         {

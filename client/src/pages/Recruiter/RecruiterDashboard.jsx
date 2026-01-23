@@ -66,9 +66,10 @@ const RecruiterDashboard = () => {
                 // Simplified: We'll sum up task payouts if available in tasks array
                 engagement.tasks.forEach((task, index) => {
                     // Extract numeric payout
-                    const payoutStr = task.payout || "0";
+                    // Extract numeric payout
+                    const payoutStr = String(task.payout || "0");
                     const payoutAmount = parseFloat(payoutStr.replace(/[^0-9.]/g, '')) || 0;
-                    const progress = engagement.taskProgress[index];
+                    const progress = engagement.taskProgress?.[index];
 
                     if (progress?.status === 'verified') {
                         totalSpent += payoutAmount;
