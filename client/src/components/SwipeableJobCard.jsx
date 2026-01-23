@@ -24,9 +24,8 @@ export function SwipeableJobCard({ job, onSwipe, style }) {
     };
 
     const getBudgetBreakdown = (budgetStr) => {
-        // Safe conversion to string to handle numbers or falsy values
-        const strVal = String(budgetStr || "0");
-        const raw = parseFloat(strVal.replace(/[^0-9.]/g, '') || 0);
+        const str = String(budgetStr || 0); // Handle budgetStr being a number or undefined
+        const raw = parseFloat(str.replace(/[^0-9.]/g, '') || 0);
         return {
             total: raw.toLocaleString(),
             main: (raw * 0.9).toLocaleString(),
@@ -147,11 +146,12 @@ export function SwipeableJobCard({ job, onSwipe, style }) {
 
                             {/* Tech Stack Pills */}
                             <div className="flex flex-wrap gap-2">
-                                {job.techStack?.split(',').map((tech, i) => (
+                                {(Array.isArray(job.techStack) ? job.techStack : (job.techStack?.split(',') || [])).map((tech, i) => (
                                     <Badge key={i} variant="outline" className="bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400 font-normal">
                                         {tech.trim()}
                                     </Badge>
-                                )) || <p className="text-sm text-muted-foreground">No specific stack listed.</p>}
+                                ))}
+                                {(!job.techStack || job.techStack.length === 0) && <p className="text-sm text-muted-foreground">No specific stack listed.</p>}
                             </div>
                         </div>
 
@@ -229,4 +229,3 @@ export function SwipeableJobCard({ job, onSwipe, style }) {
         </motion.div>
     );
 }
-

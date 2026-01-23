@@ -24,6 +24,7 @@ import ManageJobs from "./pages/Recruiter/ManageJobs";
 import Applications from "./pages/Recruiter/Applications";
 import CompanyProfile from "./pages/Recruiter/CompanyProfile";
 import ActiveWork from "./pages/Recruiter/ActiveWork";
+import ProjectGenerator from "./pages/Recruiter/ProjectGenerator";
 import { Toaster } from "sonner";
 
 const App = () => {
@@ -126,6 +127,11 @@ const App = () => {
                     <Route path="recruiter/profile" element={
                         <RoleProtected allowedRole="Recruiter">
                             <CompanyProfile />
+                        </RoleProtected>
+                    } />
+                    <Route path="recruiter/project-generator" element={
+                        <RoleProtected allowedRole="Recruiter">
+                            <ProjectGenerator />
                         </RoleProtected>
                     } />
 

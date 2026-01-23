@@ -4,6 +4,7 @@ import userRoutes from "./routes/user.routes.js";
 import jobRoutes from "./routes/jobs.routes.js";
 import roadmapRoutes from "./routes/roadmap.routes.js";
 import uploadRoutes from "./routes/upload.js";
+import geminiRoutes from "./routes/geminiRoutes.js";
 
 const app = express();
 app.use(cors());
@@ -13,6 +14,7 @@ app.use("/api/user", userRoutes);
 app.use("/api/jobs", jobRoutes);
 app.use("/api/roadmaps", roadmapRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/gemini", geminiRoutes);
 app.use("/uploads", express.static("uploads"));
 
 app.listen(3000, () => {
