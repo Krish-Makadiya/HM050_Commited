@@ -49,6 +49,10 @@ const data = {
                     title: "Video Intro",
                     url: "/dashboard/video-intro",
                 },
+                {
+                    title: "Verified Portfolio",
+                    url: "/dashboard/portfolio",
+                },
             ],
         },
         {

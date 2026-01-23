@@ -106,3 +106,33 @@ export const getUserProfileController = async (req, res) => {
         });
     }
 };
+
+export const getWorkExperienceController = async (req, res) => {
+    try {
+        const { clerkId } = req.params;
+
+        if (!clerkId) {
+            return res.status(400).json({ message: "Clerk ID is required" });
+        }
+
+        const snapshot = await db
+            .collection("users")
+            .doc(clerkId)
+            .collection("workExperience")
+            .orderBy("verifiedDate", "desc")
+            .get();
+
+        const workExperience = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+        }));
+
+        res.status(200).json({ workExperience });
+    } catch (error) {
+        console.error("Error fetching work experience:", error);
+        res.status(500).json({
+            message: "Failed to fetch work experience",
+            error: error.message,
+        });
+    }
+};

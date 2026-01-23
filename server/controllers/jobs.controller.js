@@ -800,6 +800,124 @@ export const updateTaskProgressController = async (req, res) => {
             message: `Task ${taskIndex} status updated to ${status}`,
             taskProgress: currentProgress,
         });
+
+        // ------------------------------------------------------------------
+        // PORTFOLIO PORTABILITY LOGIC (Verified by FairLink AI)
+        // ------------------------------------------------------------------
+        // Frontend sends "verified", Controller previously checked "Accepted".
+        // Now verifying all tasks are "verified" or "Accepted".
+        if (status === "Accepted" || status === "verified") {
+            try {
+                // 1. Fetch Job to get ALL tasks
+                const jobRef = db.collection("jobs").doc(jobId);
+                const jobDoc = await jobRef.get();
+                if (!jobDoc.exists) return; // Should not happen given earlier checks
+                const jobData = jobDoc.data();
+                const allTasks = jobData.tasks || [];
+
+                if (allTasks.length === 0) return;
+
+                // 2. Check if this is the FINAL task
+                // Assuming tasks are ordered in the array.
+                // taskIndex is passed as a number or string in body, ensure integer comparison.
+                const idx = parseInt(taskIndex, 10);
+                const isFinalTask = idx === allTasks.length - 1;
+
+                if (isFinalTask) {
+                    // 3. Verify ALL Preceding Tasks are Accepted/Verified
+                    // We check if every task from 0 to allTasks.length - 1 is 'Accepted' or 'verified' in currentProgress
+                    let allAccepted = true;
+                    // Note: currentProgress has already been updated with the current task's status above.
+                    for (let i = 0; i < allTasks.length; i++) {
+                        const taskStatus = currentProgress[i]?.status;
+                        if (taskStatus !== "Accepted" && taskStatus !== "verified") {
+                            allAccepted = false;
+                            console.log(`Portfolio Portability: Task ${i} is not Verified (Status: ${taskStatus}). Trigger skipped.`);
+                            break;
+                        }
+                    }
+
+                    if (allAccepted) {
+                        console.log("Portfolio Portability: All tasks verified. Triggering AI Analysis and Marking Completed...");
+
+                        // MARK JOB AS COMPLETED FOR CANDIDATE
+                        await applicantRef.update({
+                            status: "Completed",
+                            completedAt: new Date().toISOString()
+                        });
+
+                        // 4. Initialize Gemini AI
+                        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+                        // Using explicit model requirement: gemini-2.0-flash (falling back to 1.5-flash if 2.0 lacks permissions, but requesting 2.0 as primary)
+                        // Note: If 'gemini-2.0-flash' is not yet available in the public SDK aliasing, we might need to use a specific version string.
+                        // Common reliable flash model alias currently is "gemini-1.5-flash", but user asked for "gemini-2.0-flash".
+                        // I will use "gemini-2.0-flash" as requested.
+                        const model = genAI.getGenerativeModel({
+                            model: "gemini-2.0-flash", // User requested specifically
+                            generationConfig: { responseMimeType: "application/json" },
+                        });
+
+                        // 5. Construct Prompt
+                        const tasksSummary = allTasks.map((t, i) => `Task ${i + 1}: ${t.title || "Task"}`).join("\n");
+                        const projectBrief = `
+                        Project Title: ${jobData.title}
+                        Description: ${jobData.description}
+                        Tasks Completed:
+                        ${tasksSummary}
+                        Tech Stack: ${jobData.skills ? jobData.skills.join(", ") : "N/A"}
+                        `;
+
+                        // Fetching previous AI Score from the application if available
+                        const prevAiScore = applicantData.aiScore || 0;
+
+                        const prompt = `
+                        You are a Senior Technical Recruiter. Analyze this finalized project brief and the developer's solution. 
+                        Generate a JSON object with:
+                        - abstract: A 2-sentence summary for non-technical HR managers.
+                        - breakdown: A detailed technical summary of the architecture and stack used.
+                        - tags: An array of technical skill tags.
+                        
+                        STRICT PRIVACY RULE: You must anonymize the output. Remove all company names, private repository links, internal project IDs, and sensitive business logic. Focus purely on technical achievement.
+
+                        Project Brief:
+                        ${projectBrief}
+                        `;
+
+                        // 6. Generate Content
+                        const result = await model.generateContent(prompt);
+                        const responseText = result.response.text();
+                        const aiWorkData = JSON.parse(responseText);
+
+                        // 7. Save to Firestore (users/{userId}/workExperience)
+                        // Check if already exists to avoid dupes on re-clicks
+                        // But we use random ID, so it would dupe. 
+                        // Let's use a deterministic ID based on JobID to prevent duplicates?
+                        // "workExperience" doc ID could be `exp_${jobId}`.
+                        const workExpId = `exp_${jobId}`; // Deterministic ID to prevent duplicates
+
+                        const workExperienceEntry = {
+                            proofId: crypto.randomUUID(), // Visual ID
+                            jobId: jobId, // Reference
+                            jobTitle: jobData.title,
+                            aiScore: prevAiScore,
+                            verifiedDate: new Date().toISOString(),
+                            status: "Verified by FairLink AI",
+                            content: {
+                                abstract: aiWorkData.abstract,
+                                breakdown: aiWorkData.breakdown,
+                                tags: aiWorkData.tags
+                            }
+                        };
+
+                        await db.collection("users").doc(applicantId).collection("workExperience").doc(workExpId).set(workExperienceEntry);
+                        console.log(`Portfolio Portability: Work Experience added for user ${applicantId}`);
+                    }
+                }
+            } catch (portabilityError) {
+                console.error("Portfolio Portability Error:", portabilityError);
+                // We do NOT block the main response, just log the error as requested ("log the error and allow for a manual retry later")
+            }
+        }
     } catch (error) {
         console.error("Error updating task progress:", error);
         res.status(500).json({

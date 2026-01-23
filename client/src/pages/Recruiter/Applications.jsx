@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Select } from "@/ui/select";
-import { Search, Filter, MoreHorizontal, Mail, Calendar, Loader2, ExternalLink, FileText, CheckCircle2, Sparkles, Briefcase, GraduationCap, EyeOff, Lock } from "lucide-react";
+import { Search, Filter, MoreHorizontal, Mail, Calendar, Loader2, ExternalLink, FileText, CheckCircle2, Sparkles, Briefcase, GraduationCap, EyeOff, Lock, ShieldCheck } from "lucide-react";
 import { Input } from "@/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/ui/dropdown-menu";
 import { useSearchParams } from 'react-router-dom';
@@ -13,6 +13,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/ui/dialog";
 import { DialogTrigger } from '@radix-ui/react-dialog';
+import WorkExperienceCard from '@/components/WorkExperienceCard';
 
 const Applications = () => {
     const [searchParams] = useSearchParams();
@@ -24,6 +25,28 @@ const Applications = () => {
     const [blindHiring, setBlindHiring] = useState(false);
     const [analyzing, setAnalyzing] = useState({});
     const [selectedCandidate, setSelectedCandidate] = useState(null);
+    const [candidatePortfolio, setCandidatePortfolio] = useState([]);
+    const [loadingPortfolio, setLoadingPortfolio] = useState(false);
+
+    useEffect(() => {
+        if (selectedCandidate) {
+            const fetchPortfolio = async () => {
+                setLoadingPortfolio(true);
+                try {
+                    const response = await axios.get(`${import.meta.env.VITE_SERVER_API}/api/user/work-experience/${selectedCandidate.id}`);
+                    setCandidatePortfolio(response.data.workExperience || []);
+                } catch (error) {
+                    console.error("Failed to fetch candidate portfolio", error);
+                    setCandidatePortfolio([]);
+                } finally {
+                    setLoadingPortfolio(false);
+                }
+            };
+            fetchPortfolio();
+        } else {
+            setCandidatePortfolio([]);
+        }
+    }, [selectedCandidate]);
 
     useEffect(() => {
         const fetchApplicants = async () => {
@@ -157,9 +180,9 @@ const Applications = () => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Applications</h1>
-                    <p className="text-muted-foreground">
+                    <div className="text-muted-foreground flex items-center gap-2">
                         Status: <Badge variant={isSubmissionPhase ? "default" : "outline"}>{jobStatus}</Badge>
-                    </p>
+                    </div>
                     {blindHiring && (
                         <Badge variant="outline" className="mt-2 bg-purple-50 text-purple-700 border-purple-200 gap-1 w-fit">
                             <EyeOff className="w-3 h-3" /> Blind Hiring Mode
@@ -495,6 +518,32 @@ const Applications = () => {
                                         </div>
                                     </div>
                                 )}
+
+                                {/* Verified Portfolio Section */}
+                                <div className="space-y-3">
+                                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                                        <ShieldCheck className="w-4 h-4 text-blue-500" /> Verified Portfolio
+                                    </h3>
+                                    {loadingPortfolio ? (
+                                        <div className="flex items-center justify-center p-4">
+                                            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                                        </div>
+                                    ) : candidatePortfolio.length > 0 ? (
+                                        <div className="space-y-4">
+                                            {candidatePortfolio.map((item, index) => (
+                                                <WorkExperienceCard
+                                                    key={item.proofId || index}
+                                                    {...item}
+                                                    {...item.content}
+                                                />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="p-4 border border-dashed rounded-lg bg-neutral-50/50 text-center text-sm text-muted-foreground">
+                                            No verified portfolio entries yet.
+                                        </div>
+                                    )}
+                                </div>
 
                                 {/* Work Experience */}
                                 {selectedCandidate.workExperience && selectedCandidate.workExperience.length > 0 && (
