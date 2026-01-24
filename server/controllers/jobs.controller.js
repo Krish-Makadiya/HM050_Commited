@@ -389,7 +389,7 @@ export const applyJobController = async (req, res) => {
         try {
             const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
             const model = genAI.getGenerativeModel({
-                model: "gemini-2.5-flash-preview-09-2025",
+                model: "gemini-flash-latest",
                 generationConfig: { responseMimeType: "application/json" },
             });
 
@@ -624,6 +624,10 @@ export const getCandidateApplicationsController = async (req, res) => {
                     submissionTask: jobData.submissionTask || "",
                     taskProgress: applicantData.taskProgress || {},
                     modules: jobData.modules || [],
+                    interviewScore: applicantData.interviewScore,
+                    interviewSummary: applicantData.interviewSummary,
+                    interviewStrengths: applicantData.interviewStrengths,
+                    interviewWeaknesses: applicantData.interviewWeaknesses,
                 };
             }),
         );
@@ -830,35 +834,50 @@ export const updateTaskProgressController = async (req, res) => {
                     // Note: currentProgress has already been updated with the current task's status above.
                     for (let i = 0; i < allTasks.length; i++) {
                         const taskStatus = currentProgress[i]?.status;
-                        if (taskStatus !== "Accepted" && taskStatus !== "verified") {
+                        if (
+                            taskStatus !== "Accepted" &&
+                            taskStatus !== "verified"
+                        ) {
                             allAccepted = false;
-                            console.log(`Portfolio Portability: Task ${i} is not Verified (Status: ${taskStatus}). Trigger skipped.`);
+                            console.log(
+                                `Portfolio Portability: Task ${i} is not Verified (Status: ${taskStatus}). Trigger skipped.`,
+                            );
                             break;
                         }
                     }
 
                     if (allAccepted) {
-                        console.log("Portfolio Portability: All tasks verified. Triggering AI Analysis and Marking Completed...");
+                        console.log(
+                            "Portfolio Portability: All tasks verified. Triggering AI Analysis and Marking Completed...",
+                        );
 
                         // MARK JOB AS COMPLETED FOR CANDIDATE
                         await applicantRef.update({
                             status: "Completed",
-                            completedAt: new Date().toISOString()
+                            completedAt: new Date().toISOString(),
                         });
 
                         // 4. Initialize Gemini AI
-                        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+                        const genAI = new GoogleGenerativeAI(
+                            process.env.GEMINI_API_KEY,
+                        );
                         // Using explicit model requirement: gemini-2.0-flash (falling back to 1.5-flash if 2.0 lacks permissions, but requesting 2.0 as primary)
                         // Note: If 'gemini-2.0-flash' is not yet available in the public SDK aliasing, we might need to use a specific version string.
                         // Common reliable flash model alias currently is "gemini-1.5-flash", but user asked for "gemini-2.0-flash".
                         // I will use "gemini-2.0-flash" as requested.
                         const model = genAI.getGenerativeModel({
-                            model: "gemini-2.0-flash", // User requested specifically
-                            generationConfig: { responseMimeType: "application/json" },
+                            model: "gemini-2.5-flash-09-2025", // User requested specifically
+                            generationConfig: {
+                                responseMimeType: "application/json",
+                            },
                         });
 
                         // 5. Construct Prompt
-                        const tasksSummary = allTasks.map((t, i) => `Task ${i + 1}: ${t.title || "Task"}`).join("\n");
+                        const tasksSummary = allTasks
+                            .map(
+                                (t, i) => `Task ${i + 1}: ${t.title || "Task"}`,
+                            )
+                            .join("\n");
                         const projectBrief = `
                         Project Title: ${jobData.title}
                         Description: ${jobData.description}
@@ -890,7 +909,7 @@ export const updateTaskProgressController = async (req, res) => {
 
                         // 7. Save to Firestore (users/{userId}/workExperience)
                         // Check if already exists to avoid dupes on re-clicks
-                        // But we use random ID, so it would dupe. 
+                        // But we use random ID, so it would dupe.
                         // Let's use a deterministic ID based on JobID to prevent duplicates?
                         // "workExperience" doc ID could be `exp_${jobId}`.
                         const workExpId = `exp_${jobId}`; // Deterministic ID to prevent duplicates
@@ -905,12 +924,19 @@ export const updateTaskProgressController = async (req, res) => {
                             content: {
                                 abstract: aiWorkData.abstract,
                                 breakdown: aiWorkData.breakdown,
-                                tags: aiWorkData.tags
-                            }
+                                tags: aiWorkData.tags,
+                            },
                         };
 
-                        await db.collection("users").doc(applicantId).collection("workExperience").doc(workExpId).set(workExperienceEntry);
-                        console.log(`Portfolio Portability: Work Experience added for user ${applicantId}`);
+                        await db
+                            .collection("users")
+                            .doc(applicantId)
+                            .collection("workExperience")
+                            .doc(workExpId)
+                            .set(workExperienceEntry);
+                        console.log(
+                            `Portfolio Portability: Work Experience added for user ${applicantId}`,
+                        );
                     }
                 }
             } catch (portabilityError) {
@@ -990,6 +1016,137 @@ export const getRecruiterActiveWorkController = async (req, res) => {
         console.error("Error fetching recruiter active work:", error);
         res.status(500).json({
             message: "Failed to fetch active work",
+            error: error.message,
+        });
+    }
+};
+
+export const analyzeInterviewController = async (req, res) => {
+    try {
+        const { jobId, applicantId } = req.params;
+        const { transcript } = req.body;
+
+        if (!jobId || !applicantId || !transcript) {
+            return res.status(400).json({
+                message: "Job ID, Applicant ID and Transcript are required",
+            });
+        }
+
+        const jobRef = db.collection("jobs").doc(jobId);
+        const applicantRef = jobRef.collection("applicants").doc(applicantId);
+
+        const [jobDoc, applicantDoc] = await Promise.all([
+            jobRef.get(),
+            applicantRef.get(),
+        ]);
+
+        if (!jobDoc.exists)
+            return res.status(404).json({ message: "Job not found" });
+        if (!applicantDoc.exists)
+            return res.status(404).json({ message: "Applicant not found" });
+
+        const jobData = jobDoc.data();
+
+        // Initialize Gemini
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        // Using flash model for speed
+        const model = genAI.getGenerativeModel({
+            model: "gemini-2.5-flash-preview-09-2025",
+            generationConfig: { responseMimeType: "application/json" },
+        });
+
+        // Construct Prompt
+        const prompt = `
+        You are an expert Technical Interviewer for a MERN Stack Developer role.
+        The candidate has just completed an initial screening interview (conducted via AI voice).
+        
+        Job Title: ${jobData.title}
+        Required Skills: ${jobData.skills ? jobData.skills.join(", ") : "MERN Stack, JavaScript, React, Node.js"}
+        
+        Transcript of the Interview:
+        ${JSON.stringify(transcript)}
+        
+        Analyze the candidate's responses based on:
+        1. Technical Accuracy (MERN specific knowledge)
+        2. Communication Skills (Clarity, confidence)
+        3. Problem Solving approach (if applicable in the conversation)
+
+        Return a JSON object with:
+        - interviewScore: Integer (0-100) representing their capability.
+        - interviewSummary: A concise paragraph (approx 50 words) summarizing the interview performance.
+        - interviewStrengths: Array of strings (2-3 key technical strengths).
+        - interviewWeaknesses: Array of strings (2-3 areas for improvement).
+        `;
+
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text();
+        const aiAnalysis = JSON.parse(responseText);
+
+        // Update Applicant Document
+        await applicantRef.update({
+            interviewScore: aiAnalysis.interviewScore,
+            interviewSummary: aiAnalysis.interviewSummary,
+            interviewStrengths: aiAnalysis.interviewStrengths,
+            interviewWeaknesses: aiAnalysis.interviewWeaknesses,
+            interviewTranscript: transcript,
+            interviewAnalyzedAt: new Date().toISOString(),
+        });
+
+        res.status(200).json(aiAnalysis);
+    } catch (error) {
+        console.error("Error analyzing interview:", error);
+        res.status(500).json({
+            message: "Failed to analyze interview",
+            error: error.message,
+        });
+    }
+};
+
+export const switchCandidateController = async (req, res) => {
+    try {
+        const { jobId, oldCandidateId, newCandidateId } = req.body;
+
+        if (!jobId || !oldCandidateId || !newCandidateId) {
+            return res.status(400).json({
+                message: "Job ID, Old Candidate ID, and New Candidate ID are required"
+            });
+        }
+
+        const batch = db.batch();
+        const jobRef = db.collection("jobs").doc(jobId);
+
+        // Reference to old and new candidate documents
+        const oldCandidateRef = jobRef.collection("applicants").doc(oldCandidateId);
+        const newCandidateRef = jobRef.collection("applicants").doc(newCandidateId);
+
+        // 1. Mark old candidate as Terminated (removed from Active Work)
+        batch.update(oldCandidateRef, {
+            status: "Terminated",
+            terminatedAt: new Date().toISOString()
+        });
+
+        // 2. Mark new candidate as Shortlisted (added to Active Work)
+        // We also want to ensure they are fresh for the module?
+        // Assuming their progress is clean or they are picking up.
+        // Usually switching to a new candidate implies a fresh start for them on this job deployment.
+        batch.update(newCandidateRef, {
+            status: "Shortlisted",
+            switchedFrom: oldCandidateId,
+            switchedAt: new Date().toISOString()
+        });
+
+        await batch.commit();
+
+        res.status(200).json({
+            message: "Candidate switched successfully",
+            oldCandidateId,
+            newCandidateId
+        });
+
+    } catch (error) {
+        console.error("Error switching candidate:", error);
+        res.status(500).json({
+            message: "Failed to switch candidate",
             error: error.message,
         });
     }

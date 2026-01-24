@@ -4,7 +4,7 @@ import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Checkbox } from "@/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar";
-import { Clock, CheckCircle2, AlertCircle, Loader2, Building2, User, FileText } from "lucide-react";
+import { Clock, CheckCircle2, AlertCircle, Loader2, Building2, User, FileText, UserPlus, RefreshCcw, ArrowRight } from "lucide-react";
 import { useUser } from '@clerk/clerk-react';
 import axios from 'axios';
 import { formatDistanceToNow } from 'date-fns';
@@ -19,6 +19,11 @@ const ActiveWork = () => {
     // New state for Review Dialog
     const [reviewState, setReviewState] = useState(null); // { engagement, task, globalIndex, candidateNote }
     const [feedback, setFeedback] = useState("");
+    
+    // Switch Candidate State
+    const [switchState, setSwitchState] = useState(null); // { engagement, module }
+    const [availableCandidates, setAvailableCandidates] = useState([]);
+    const [switchLoading, setSwitchLoading] = useState(false);
 
     useEffect(() => {
         const fetchActiveWork = async () => {
@@ -34,7 +39,51 @@ const ActiveWork = () => {
         };
 
         fetchActiveWork();
+
     }, [user]);
+
+    useEffect(() => {
+        if (switchState) {
+            const fetchCandidates = async () => {
+                try {
+                    const response = await axios.get(`${import.meta.env.VITE_SERVER_API}/api/jobs/${switchState.engagement.jobId}/applicants`);
+                    // Filter candidates: exclude current one, include Shortlisted/Applied
+                    const candidates = response.data.applicants.filter(app => 
+                        app.id !== switchState.engagement.id && 
+                        (app.status === 'Shortlisted' || app.status === 'Applied') 
+                    );
+                    setAvailableCandidates(candidates);
+                } catch (error) {
+                    console.error("Error fetching candidates:", error);
+                    toast.error("Failed to fetch available candidates");
+                }
+            };
+            fetchCandidates();
+        }
+    }, [switchState]);
+
+    const handleSwitchCandidate = async (newCandidateId) => {
+        if (switchLoading) return;
+        setSwitchLoading(true);
+        try {
+            await axios.post(`${import.meta.env.VITE_SERVER_API}/api/jobs/${switchState.engagement.jobId}/switch-candidate`, {
+                jobId: switchState.engagement.jobId,
+                oldCandidateId: switchState.engagement.id,
+                newCandidateId
+            });
+            toast.success("Candidate switched successfully. Module reopened for new candidate.");
+            setSwitchState(null);
+            
+            // Refresh Active Work List
+            const response = await axios.get(`${import.meta.env.VITE_SERVER_API}/api/jobs/active-work/${user.id}`);
+            setEngagements(response.data.activeEngagements);
+        } catch (error) {
+            console.error("Error switching candidate:", error);
+            toast.error("Failed to switch candidate");
+        } finally {
+            setSwitchLoading(false);
+        }
+    };
 
     const openReviewDialog = (engagement, task, globalIndex) => {
         const candidateNote = engagement.taskProgress?.[globalIndex]?.submissionNote || "";
@@ -183,6 +232,16 @@ const ActiveWork = () => {
                                                                         <Progress value={moduleProgress} className="h-1.5 flex-1" />
                                                                         <span className="text-xs text-muted-foreground font-medium">{Math.round(moduleProgress)}%</span>
                                                                     </div>
+                                                                    {moduleProgress < 100 && (
+                                                                        <Button 
+                                                                            size="sm" 
+                                                                            className="h-7 text-xs ml-2 gap-1 animate-in fade-in zoom-in bg-green-600 hover:bg-green-700 text-white"
+                                                                            onClick={() => setSwitchState({ engagement, module })}
+                                                                        >
+                                                                            <UserPlus className="w-3 h-3" />
+                                                                            Switch Candidate
+                                                                        </Button>
+                                                                    )}
                                                                 </div>
                                                                 <div className="p-3 space-y-2">
                                                                     {module.tasks.map((task, tIdx) => {
@@ -333,6 +392,63 @@ const ActiveWork = () => {
                         <Button onClick={() => handleVerifyTask(reviewState.engagement.jobId, reviewState.engagement.id, reviewState.globalIndex, 'verified')} className="bg-green-600 hover:bg-green-700">
                             <CheckCircle2 className="w-4 h-4 mr-2" /> Approve & Verify
                         </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Switch Candidate Dialog */}
+            <Dialog open={!!switchState} onOpenChange={(open) => !open && setSwitchState(null)}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <UserPlus className="w-5 h-5 text-red-600" />
+                            Switch Candidate & Reopen Module
+                        </DialogTitle>
+                        <DialogDescription>
+                            The current candidate missed the deadline for <strong>{switchState?.module?.title}</strong>. 
+                            Select a shortlisted candidate to replace them and restart the module.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+                        {availableCandidates.length === 0 ? (
+                            <div className="text-center py-8 text-muted-foreground bg-muted/30 rounded-lg">
+                                <User className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                                <p>No other shortlisted candidates available.</p>
+                            </div>
+                        ) : (
+                            availableCandidates.map((candidate) => (
+                                <div key={candidate.id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <Avatar className="h-10 w-10">
+                                            <AvatarImage src={candidate.imageUrl} />
+                                            <AvatarFallback>{candidate.firstName?.[0]}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <p className="font-medium text-sm">{candidate.firstName} {candidate.lastName}</p>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <Badge variant="outline" className="text-[10px] h-4 px-1">{candidate.status}</Badge>
+                                                <span className="text-xs text-muted-foreground">Match: {candidate.suitabilityScore}%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <Button 
+                                        size="sm" 
+                                        variant="default"
+                                        className="gap-2"
+                                        onClick={() => handleSwitchCandidate(candidate.id)}
+                                        disabled={switchLoading}
+                                    >
+                                        {switchLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                                        Select
+                                    </Button>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setSwitchState(null)}>Cancel</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
