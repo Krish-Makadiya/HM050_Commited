@@ -16,6 +16,7 @@ import VideoIntro from "./pages/Candidate/VideoIntro";
 import SubmitWork from "./pages/Candidate/SubmitWork";
 import MyInsights from "./pages/Candidate/MyInsights";
 import MyPortfolio from "./pages/Candidate/MyPortfolio";
+import ConnectXDashboard from "./pages/Candidate/ConnectXDashboard";
 
 // Recruiter Pages
 import RecruiterDashboard from "./pages/Recruiter/RecruiterDashboard";
@@ -95,6 +96,11 @@ const App = () => {
                     <Route path="portfolio" element={
                         <RoleProtected allowedRole="Candidate">
                             <MyPortfolio />
+                        </RoleProtected>
+                    } />
+                    <Route path="connect-x" element={
+                        <RoleProtected allowedRole="Candidate">
+                            <ConnectXDashboard />
                         </RoleProtected>
                     } />
 

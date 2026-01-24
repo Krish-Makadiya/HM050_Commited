@@ -61,15 +61,15 @@ const RecruiterDashboard = () => {
             // Check for new Modular structure
             if (engagement.modules && Array.isArray(engagement.modules) && engagement.modules.length > 0) {
                 let globalTaskIndex = 0;
-                
-                engagement.modules.forEach((module, mIdx) => {
-                     let moduleTotal = 0;
-                     let moduleVerifiedTasks = 0;
-                     let moduleLastUpdate = null;
-                     const moduleTaskCount = module.tasks.length;
-                     const moduleTitle = module.title || `Module ${mIdx + 1}`;
 
-                     module.tasks.forEach(task => {
+                engagement.modules.forEach((module, mIdx) => {
+                    let moduleTotal = 0;
+                    let moduleVerifiedTasks = 0;
+                    let moduleLastUpdate = null;
+                    const moduleTaskCount = module.tasks.length;
+                    const moduleTitle = module.title || `Module ${mIdx + 1}`;
+
+                    module.tasks.forEach(task => {
                         const payoutStr = String(task.payout || "0");
                         const payoutAmount = parseFloat(payoutStr.replace(/[^0-9.]/g, '')) || 0;
                         moduleTotal += payoutAmount;
@@ -85,12 +85,12 @@ const RecruiterDashboard = () => {
                                 }
                             }
                         }
-                        
-                        globalTaskIndex++; // Increment for mapping
-                     });
 
-                     // CORE LOGIC: Spending is "Spent" only if FULL MODULE is verified
-                     if (moduleVerifiedTasks === moduleTaskCount && moduleTaskCount > 0) {
+                        globalTaskIndex++; // Increment for mapping
+                    });
+
+                    // CORE LOGIC: Spending is "Spent" only if FULL MODULE is verified
+                    if (moduleVerifiedTasks === moduleTaskCount && moduleTaskCount > 0) {
                         totalSpent += moduleTotal;
 
                         payouts.push({
@@ -102,12 +102,12 @@ const RecruiterDashboard = () => {
                             date: moduleLastUpdate || new Date(),
                             status: "Paid"
                         });
-                     } else if (engagement.status === 'Hired' || engagement.status === 'Work Submitted' || engagement.status === 'Shortlisted') {
-                         // Otherwise it's pending/committed
-                         pendingCommitment += moduleTotal;
-                     }
+                    } else if (engagement.status === 'Hired' || engagement.status === 'Work Submitted' || engagement.status === 'Shortlisted') {
+                        // Otherwise it's pending/committed
+                        pendingCommitment += moduleTotal;
+                    }
                 });
-            } 
+            }
             // Fallback for flat tasks
             else if (engagement.tasks) {
                 engagement.tasks.forEach((task, index) => {
@@ -197,7 +197,7 @@ const RecruiterDashboard = () => {
             </div>
 
             {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-100 dark:border-blue-900">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">Active Jobs</CardTitle>
@@ -236,6 +236,18 @@ const RecruiterDashboard = () => {
                     <CardContent>
                         <div className="text-2xl font-bold">${stats.pendingCommitment.toLocaleString()}</div>
                         <p className="text-xs text-muted-foreground">Locked in active contracts</p>
+                    </CardContent>
+                </Card>
+
+                {/* Visual Distinction for ConnectX */}
+                <Card className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 border-purple-100 dark:border-purple-900 border-dashed">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">ConnectX Squads</CardTitle>
+                        <Users className="h-4 w-4 text-purple-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">{jobs.filter(j => j.type === 'Squad').length}</div>
+                        <p className="text-xs text-purple-600/80 dark:text-purple-400/80">Active Team Projects</p>
                     </CardContent>
                 </Card>
             </div>

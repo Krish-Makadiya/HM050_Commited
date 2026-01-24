@@ -3,17 +3,18 @@ import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
 import { Label } from "@/ui/label";
 import { Textarea } from "@/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/ui/card";
 import { Select } from "@/ui/select";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Calendar } from "@/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import { format } from "date-fns";
-import { CalendarIcon, Loader2, DollarSign, Clock, Code2, FileText, UploadCloud, Trash2, Plus, Layers, ChevronDown, ChevronRight, Sparkles } from "lucide-react";
+import { CalendarIcon, Loader2, DollarSign, Clock, Code2, FileText, UploadCloud, Trash2, Plus, Layers, ChevronDown, ChevronRight, Sparkles, CheckCircle2 } from "lucide-react";
 import axios from 'axios';
 import { useUser } from '@clerk/clerk-react';
 import { Checkbox } from "@/ui/checkbox";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/ui/accordion";
+import { toast } from "sonner";
 
 const PostJob = () => {
     const navigate = useNavigate();
@@ -32,19 +33,29 @@ const PostJob = () => {
         techStack: "",
         description: "",
         budget: "",
+        compensationBudget: "", // Auto-calculated 10%
         deliverables: "",
-        blindHiring: false
+        blindHiring: false,
+        isCollaborative: false
     });
 
     // New Modular Structure
     // Module: { id, title: "", description: "", deadline: null, tasks: [] }
-    const [modules, setModules] = useState([{ 
-        id: Date.now(), 
-        title: "Module 1: Foundation", 
-        description: "", 
-        deadline: null, 
-        tasks: [{ description: "", payout: "" }] 
+    const [modules, setModules] = useState([{
+        id: Date.now(),
+        title: "Module 1: Foundation",
+        description: "",
+        deadline: null,
+        tasks: [{ description: "", payout: "" }],
+        assignedRole: "" // New field due to schema update
     }]);
+
+    // Role Management
+    const [roles, setRoles] = useState([
+        { id: 'r1', name: "Lead Developer", description: "Responsible for core architecture", skills: "" },
+        { id: 'r2', name: "UI Designer", description: "Responsible for user interface", skills: "" }
+    ]);
+
 
     useEffect(() => {
         // Check if we are in Edit Mode
@@ -86,10 +97,17 @@ const PostJob = () => {
 
     const handleInputChange = (e) => {
         const { id, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [id]: value
-        }));
+        setFormData(prev => {
+            const newState = { ...prev, [id]: value };
+
+            // Auto-calculate Compensation Budget (10%)
+            if (id === 'budget') {
+                const total = parseFloat(value) || 0;
+                newState.compensationBudget = (total * 0.10).toFixed(2);
+            }
+
+            return newState;
+        });
     };
 
     const handleSelectChange = (value, id) => {
@@ -141,6 +159,23 @@ const PostJob = () => {
         setModules(newModules);
     };
 
+    // --- Role Management ---
+    const addRole = () => {
+        setRoles([...roles, { id: `r${Date.now()}`, name: "", description: "", skills: "" }]);
+    };
+
+    const removeRole = (index) => {
+        const newRoles = [...roles];
+        newRoles.splice(index, 1);
+        setRoles(newRoles);
+    };
+
+    const updateRole = (index, field, value) => {
+        const newRoles = [...roles];
+        newRoles[index][field] = value;
+        setRoles(newRoles);
+    };
+
     // --- AI Integration ---
     const [showAIModal, setShowAIModal] = useState(false);
     const [aiIdea, setAiIdea] = useState("");
@@ -151,11 +186,20 @@ const PostJob = () => {
         if (!aiIdea.trim()) return;
         setAiLoading(true);
         try {
-            const res = await axios.post(`${import.meta.env.VITE_SERVER_API}/api/gemini/job-details`, {
-                projectIdea: aiIdea
-            });
-            if (res.data && res.data.options) {
-                setAiOptions(res.data.options);
+            if (formData.isCollaborative) {
+                const res = await axios.post(`${import.meta.env.VITE_SERVER_API}/api/connectx/ai/plan`, {
+                    projectIdea: aiIdea
+                });
+                if (res.data && res.data.options) {
+                    setAiOptions(res.data.options);
+                }
+            } else {
+                const res = await axios.post(`${import.meta.env.VITE_SERVER_API}/api/gemini/job-details`, {
+                    projectIdea: aiIdea
+                });
+                if (res.data && res.data.options) {
+                    setAiOptions(res.data.options);
+                }
             }
         } catch (err) {
             console.error(err);
@@ -175,17 +219,29 @@ const PostJob = () => {
             budget: option.budget,
             deliverables: "Complete source code, Deployment instructions, Documentation"
         }));
-        
+
         // Map AI modules to state
         if (option.modules) {
             setModules(option.modules.map((m, i) => ({
                 id: Date.now() + i,
                 title: m.title,
                 description: m.description,
-                deadline: null, // User needs to set this
+                deadline: null,
+                assignedRole: m.assignedRole || "", // Map assigned role if present
                 tasks: m.tasks.map(t => ({ description: t.description, payout: t.payout }))
             })));
         }
+
+        if (option.roles) {
+            setRoles(option.roles.map((r, i) => ({
+                id: `r${Date.now()}_${i}`,
+                name: r.name,
+                description: r.description,
+                skills: r.skills ? r.skills.join(", ") : ""
+            })));
+            setFormData(prev => ({ ...prev, isCollaborative: true }));
+        }
+
         setShowAIModal(false);
     };
 
@@ -206,19 +262,24 @@ const PostJob = () => {
                     deadline: m.deadline ? m.deadline.toISOString() : null
                 })),
                 // Allow backward compat searching if needed
-                deadline: date ? date.toISOString() : null, 
+                deadline: date ? date.toISOString() : null,
                 status: status,
                 postedAt: isEditMode ? undefined : new Date().toISOString(),
-                updatedAt: new Date().toISOString()
+                updatedAt: new Date().toISOString(),
+                roles: formData.isCollaborative ? roles : [],
             };
 
-            if (isEditMode && jobId) {
+            const endpoint = formData.isCollaborative
+                ? `${import.meta.env.VITE_SERVER_API}/api/connectx/create-project`
+                : `${import.meta.env.VITE_SERVER_API}/api/jobs/post`;
+
+            if (isEditMode && jobId && !formData.isCollaborative) { // Edit support mainly for legacy
                 await axios.post(`${import.meta.env.VITE_SERVER_API}/api/jobs/update`, {
                     jobId: jobId,
                     ...payload
                 });
             } else {
-                await axios.post(`${import.meta.env.VITE_SERVER_API}/api/jobs/post`, payload);
+                await axios.post(endpoint, payload);
             }
 
             navigate("/dashboard/recruiter/manage-jobs");
@@ -236,29 +297,29 @@ const PostJob = () => {
 
     return (
         <div className="p-6 md:p-8 max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
-             {/* AI Modal */}
-             {showAIModal && (
+            {/* AI Modal */}
+            {showAIModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                     <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto border border-neutral-200 dark:border-neutral-800 flex flex-col">
                         <div className="p-6 border-b border-neutral-200 dark:border-neutral-800 flex justify-between items-center sticky top-0 bg-white dark:bg-neutral-900 z-10">
-                            <h2 className="text-2xl font-bold flex items-center gap-2"><Sparkles className="w-5 h-5 text-indigo-500"/> AI Project Assistant</h2>
+                            <h2 className="text-2xl font-bold flex items-center gap-2"><Sparkles className="w-5 h-5 text-indigo-500" /> AI Project Assistant</h2>
                             <Button variant="ghost" onClick={() => setShowAIModal(false)}>Close</Button>
                         </div>
-                        
+
                         <div className="p-6 space-y-6">
                             {!aiOptions ? (
                                 <div className="space-y-4">
                                     <Label>Describe your project idea roughly:</Label>
-                                    <Textarea 
+                                    <Textarea
                                         placeholder="e.g. I want to build a marketplace for used books..."
                                         className="min-h-[150px] text-lg"
                                         value={aiIdea}
                                         onChange={e => setAiIdea(e.target.value)}
                                     />
-                                    <Button 
-                                        className="w-full bg-linear-to-r from-indigo-600 to-purple-600" 
-                                        size="lg" 
-                                        onClick={handleAIGenerate} 
+                                    <Button
+                                        className="w-full bg-linear-to-r from-indigo-600 to-purple-600"
+                                        size="lg"
+                                        onClick={handleAIGenerate}
                                         disabled={aiLoading}
                                     >
                                         {aiLoading ? <Loader2 className="animate-spin mr-2" /> : "Generate Project Plan"}
@@ -276,14 +337,15 @@ const PostJob = () => {
                                                 <div className="mb-4">
                                                     <h3 className="font-bold text-lg mb-1">{opt.title}</h3>
                                                     <div className="flex items-center gap-4 text-sm font-medium mt-2">
-                                                        <span className="text-green-600 flex items-center gap-1"><DollarSign className="w-3 h-3"/> {opt.budget}</span>
-                                                        <span className="text-blue-600 flex items-center gap-1"><Clock className="w-3 h-3"/> {opt.timeline}</span>
+                                                        <span className="text-green-600 flex items-center gap-1"><DollarSign className="w-3 h-3" /> {opt.budget}</span>
+                                                        <span className="text-blue-600 flex items-center gap-1"><Clock className="w-3 h-3" /> {opt.timeline}</span>
                                                     </div>
                                                 </div>
                                                 <p className="text-sm text-muted-foreground mb-4 line-clamp-3">{opt.description}</p>
-                                                
+
                                                 <div className="mt-auto space-y-2">
                                                     <p className="text-xs font-semibold uppercase text-neutral-500">Modules:</p>
+                                                    {opt.roles && <p className="text-xs font-bold text-purple-500">{opt.roles.length} Roles Defined</p>}
                                                     {opt.modules?.map((m, i) => (
                                                         <div key={i} className="text-xs bg-white dark:bg-neutral-950 p-2 rounded border border-neutral-200 dark:border-neutral-800">
                                                             <span className="font-semibold block text-indigo-600">{m.title}</span>
@@ -314,9 +376,9 @@ const PostJob = () => {
                     </p>
                 </div>
                 {!isEditMode && (
-                     <Button onClick={() => setShowAIModal(true)} className="bg-linear-to-r from-indigo-600 to-purple-600 text-white border-0 shadow-lg hover:shadow-indigo-500/20 transition-all hover:scale-105">
-                     ✨ AI Assistant
-                 </Button>
+                    <Button onClick={() => setShowAIModal(true)} className="bg-linear-to-r from-indigo-600 to-purple-600 text-white border-0 shadow-lg hover:shadow-indigo-500/20 transition-all hover:scale-105">
+                        ✨ AI Assistant
+                    </Button>
                 )}
             </div>
 
@@ -340,9 +402,22 @@ const PostJob = () => {
                                 <Label htmlFor="techStack">Tech Stack <span className="text-red-500">*</span></Label>
                                 <Input id="techStack" placeholder="React, Node, etc." value={formData.techStack} onChange={handleInputChange} />
                             </div>
-                            
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="budget">Total Project Budget ($) <span className="text-red-500">*</span></Label>
+                                    <Input id="budget" type="number" placeholder="5000" value={formData.budget} onChange={handleInputChange} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="compensationBudget">Compensation Budget (10%)</Label>
+                                    <Input id="compensationBudget" readOnly className="bg-neutral-100 dark:bg-neutral-800 text-muted-foreground" value={formData.compensationBudget} />
+                                    <p className="text-xs text-muted-foreground">Automatically reserved for platform fees/compensation.</p>
+                                </div>
+                            </div>
+
+
                             <div className="flex items-start space-x-3 p-4 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-lg">
-                                <Checkbox id="blindHiring" checked={formData.blindHiring} onCheckedChange={(c) => setFormData(p => ({...p, blindHiring: c}))} />
+                                <Checkbox id="blindHiring" checked={formData.blindHiring} onCheckedChange={(c) => setFormData(p => ({ ...p, blindHiring: c }))} />
                                 <div>
                                     <Label htmlFor="blindHiring" className="font-semibold">Blind Hiring Mode</Label>
                                     <p className="text-sm text-neutral-600">Mask candidate PII to reduce bias.</p>
@@ -351,11 +426,63 @@ const PostJob = () => {
                         </CardContent>
                     </Card>
 
+                    <div className="flex items-start space-x-3 p-4 bg-purple-50/50 dark:bg-purple-900/10 rounded-lg border border-purple-100 dark:border-purple-800">
+                        <Checkbox id="isCollaborative" checked={formData.isCollaborative} onCheckedChange={(c) => setFormData(p => ({ ...p, isCollaborative: c }))} />
+                        <div>
+                            <Label htmlFor="isCollaborative" className="font-semibold text-purple-700 dark:text-purple-300">ConnectX Collaborative Mode</Label>
+                            <p className="text-sm text-neutral-600 dark:text-neutral-400">Post this for a Squad (Team) instead of a single freelancer.</p>
+                        </div>
+                    </div>
+
+                    {/* ROLES SECTION (ConnectX Only) */}
+                    {formData.isCollaborative && (
+                        <Card className="border-purple-200 dark:border-purple-800 shadow-purple-500/10">
+                            <CardHeader>
+                                <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-2">
+                                        <div className="bg-purple-600 text-white p-2 rounded-lg"><Sparkles className="w-5 h-5" /></div>
+                                        <div>
+                                            <CardTitle>Define Squad Roles</CardTitle>
+                                            <CardDescription>Define 2-3 roles for this squad.</CardDescription>
+                                        </div>
+                                    </div>
+                                    <Button onClick={addRole} variant="outline" size="sm" className="gap-2"><Plus className="w-4 h-4" /> Add Role</Button>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {roles.map((role, rIndex) => (
+                                    <div key={role.id} className="p-4 border rounded-xl bg-purple-50/30 dark:bg-purple-900/10 relative group">
+                                        <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-red-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeRole(rIndex)}><Trash2 className="w-4 h-4" /></Button>
+                                        <div className="grid md:grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label>Role Name</Label>
+                                                <Input value={role.name} onChange={(e) => updateRole(rIndex, 'name', e.target.value)} placeholder="e.g. Frontend Lead" />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Required Skills</Label>
+                                                <Input value={role.skills} onChange={(e) => updateRole(rIndex, 'skills', e.target.value)} placeholder="React, Figma..." />
+                                            </div>
+                                            <div className="md:col-span-2 space-y-2">
+                                                <Label>Role Description</Label>
+                                                <Input value={role.description} onChange={(e) => updateRole(rIndex, 'description', e.target.value)} placeholder="What will this person do?" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </CardContent>
+                            <CardFooter className="justify-end border-t border-dashed border-purple-200 dark:border-purple-800 pt-4">
+                                <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => toast.success("Roles Confirmed! You can now assign them below.")}>
+                                    <CheckCircle2 className="w-4 h-4 mr-2" /> Confirm Roles
+                                </Button>
+                            </CardFooter>
+                        </Card>
+                    )}
+
                     {/* Modules Section */}
                     <div className="space-y-4">
                         <div className="flex justify-between items-center">
-                            <h2 className="text-xl font-bold flex items-center gap-2"><Layers className="w-5 h-5"/> Project Modules</h2>
-                            <Button onClick={addModule} variant="outline" size="sm" className="gap-2"><Plus className="w-4 h-4"/> Add Module</Button>
+                            <h2 className="text-xl font-bold flex items-center gap-2"><Layers className="w-5 h-5" /> Project Modules</h2>
+                            <Button onClick={addModule} variant="outline" size="sm" className="gap-2"><Plus className="w-4 h-4" /> Add Module</Button>
                         </div>
                         <p className="text-sm text-muted-foreground">Break down the project into completed modules. Payment is released per module completion.</p>
 
@@ -370,8 +497,8 @@ const PostJob = () => {
                                             <div className="flex-1">
                                                 <span className="font-semibold text-lg">{module.title || "Untitled Module"}</span>
                                                 <div className="text-xs text-muted-foreground flex gap-3 mt-1 font-normal">
-                                                    <span className="flex items-center gap-1"><Clock className="w-3 h-3"/> Deadline: {module.deadline ? format(module.deadline, 'PP') : "Not Set"}</span>
-                                                    <span className="flex items-center gap-1"><DollarSign className="w-3 h-3"/> Total: ${module.tasks.reduce((sum, t) => sum + (parseFloat(t.payout)||0), 0)}</span>
+                                                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Deadline: {module.deadline ? format(module.deadline, 'PP') : "Not Set"}</span>
+                                                    <span className="flex items-center gap-1"><DollarSign className="w-3 h-3" /> Total: ${module.tasks.reduce((sum, t) => sum + (parseFloat(t.payout) || 0), 0)}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -402,18 +529,30 @@ const PostJob = () => {
                                             <Input value={module.description} onChange={(e) => updateModule(mIndex, "description", e.target.value)} placeholder="Module specific details..." />
                                         </div>
 
+                                        {formData.isCollaborative && (
+                                            <div className="space-y-2">
+                                                <Label className="text-purple-600 font-semibold">Assign to Role</Label>
+                                                <Select
+                                                    value={module.assignedRole}
+                                                    onChange={(val) => updateModule(mIndex, "assignedRole", val)}
+                                                    options={roles.map(r => r.name).filter(Boolean)}
+                                                    placeholder="Select a Role"
+                                                />
+                                            </div>
+                                        )}
+
                                         <div className="space-y-3 pl-4 border-l-2 border-indigo-100 dark:border-indigo-900 mt-4">
                                             <Label className="text-xs uppercase tracking-wide text-muted-foreground">Tasks</Label>
                                             {module.tasks.map((task, tIndex) => (
                                                 <div key={tIndex} className="flex gap-3 items-start">
                                                     <Input className="flex-1" placeholder="Task description" value={task.description} onChange={(e) => updateTaskInModule(mIndex, tIndex, "description", e.target.value)} />
                                                     <Input className="w-24" placeholder="$" value={task.payout} onChange={(e) => updateTaskInModule(mIndex, tIndex, "payout", e.target.value)} />
-                                                    <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-500" onClick={() => removeTaskFromModule(mIndex, tIndex)}><Trash2 className="w-4 h-4"/></Button>
+                                                    <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-500" onClick={() => removeTaskFromModule(mIndex, tIndex)}><Trash2 className="w-4 h-4" /></Button>
                                                 </div>
                                             ))}
-                                            <Button variant="outline" size="sm" onClick={() => addTaskToModule(mIndex)} className="w-full border-dashed"><Plus className="w-3 h-3 mr-2"/> Add Task</Button>
+                                            <Button variant="outline" size="sm" onClick={() => addTaskToModule(mIndex)} className="w-full border-dashed"><Plus className="w-3 h-3 mr-2" /> Add Task</Button>
                                         </div>
-                                        
+
                                         <div className="flex justify-end pt-2">
                                             <Button variant="ghost" className="text-red-500 hover:bg-red-50 hover:text-red-600" onClick={() => removeModule(mIndex)}>Remove Module</Button>
                                         </div>
@@ -449,7 +588,7 @@ const PostJob = () => {
                                     <span>${calculatedTotalBudget}</span>
                                 </div>
                                 <Button size="lg" className="w-full" onClick={() => handleSubmit("Active")} disabled={isSubmitting}>
-                                    {isSubmitting ? <Loader2 className="animate-spin mr-2"/> : (isEditMode ? "Save Changes" : "Post Job")}
+                                    {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : (isEditMode ? "Save Changes" : "Post Job")}
                                 </Button>
                                 <p className="text-xs text-muted-foreground text-center mt-2">Funds released per module completion.</p>
                             </div>

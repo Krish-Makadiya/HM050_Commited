@@ -53,6 +53,10 @@ const data = {
                     title: "Verified Portfolio",
                     url: "/dashboard/portfolio",
                 },
+                {
+                    title: "ConnectX Squads",
+                    url: "/dashboard/connect-x",
+                },
             ],
         },
         {
