@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Select } from "@/ui/select";
-import { Search, Filter, MoreHorizontal, Mail, Calendar, Loader2, ExternalLink, FileText, CheckCircle2, Sparkles, Briefcase, GraduationCap, EyeOff, Lock, ShieldCheck } from "lucide-react";
+import { Search, Filter, MoreHorizontal, Mail, Calendar, Loader2, ExternalLink, FileText, CheckCircle2, Sparkles, Briefcase, GraduationCap, EyeOff, Lock, ShieldCheck, Zap, Users } from "lucide-react";
 import { Input } from "@/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/ui/dropdown-menu";
 import { useSearchParams } from 'react-router-dom';
@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/ui/dialog";
 import { DialogTrigger } from '@radix-ui/react-dialog';
 import WorkExperienceCard from '@/components/WorkExperienceCard';
+import CandidateProfileModal from './CandidateProfileModal';
 
 const Applications = () => {
     const [searchParams] = useSearchParams();
@@ -27,6 +28,11 @@ const Applications = () => {
     const [selectedCandidate, setSelectedCandidate] = useState(null);
     const [candidatePortfolio, setCandidatePortfolio] = useState([]);
     const [loadingPortfolio, setLoadingPortfolio] = useState(false);
+
+    // ConnectX State
+    const [isCollaborative, setIsCollaborative] = useState(false);
+    const [squadSuggestions, setSquadSuggestions] = useState([]);
+    const [loadingSquads, setLoadingSquads] = useState(false);
 
     useEffect(() => {
         if (selectedCandidate) {
@@ -60,6 +66,8 @@ const Applications = () => {
                 setCandidates(response.data.applicants);
                 setJobStatus(response.data.jobStatus);
                 setBlindHiring(response.data.jobData?.blindHiring || false);
+                setIsCollaborative(response.data.jobData?.isCollaborative || false); // Check flag
+
 
                 // If submission opens, default to showing shortlisted/submitted
                 if (response.data.jobStatus === "SubmissionOpen" || response.data.jobStatus === "Closed") {
@@ -74,6 +82,39 @@ const Applications = () => {
 
         fetchApplicants();
     }, [jobId]);
+
+    useEffect(() => {
+        if (isCollaborative && jobId) {
+            const fetchSquads = async () => {
+                setLoadingSquads(true);
+                try {
+                    const res = await axios.post(`${import.meta.env.VITE_SERVER_API}/api/connectx/generate-squads`, { jobId });
+                    setSquadSuggestions(res.data.squads || []);
+                } catch (err) {
+                    console.error("Failed to fetch squads:", err);
+                } finally {
+                    setLoadingSquads(false);
+                }
+            };
+            fetchSquads();
+        }
+    }, [isCollaborative, jobId]);
+
+    const handleInviteSquad = async (squad) => {
+        try {
+            await axios.post(`${import.meta.env.VITE_SERVER_API}/api/connectx/invite`, {
+                jobId,
+                squadData: squad,
+                projectTitle: "Collaborative Project Invitation" // Ideally fetch title
+            });
+            toast.success("Squad invited successfully!");
+            // Optionally remove from list or mark invited
+        } catch (error) {
+            console.error("Error inviting squad:", error);
+            toast.error("Failed to invite squad.");
+        }
+    };
+
 
     const handleStatusUpdate = async (applicantId, newStatus) => {
         try {
@@ -173,16 +214,28 @@ const Applications = () => {
         )
     }
 
+
+    // --- Render View ---
+
+    // 2. STANDARD VIEW (Merged with Collaborative)
     const isSubmissionPhase = jobStatus === "SubmissionOpen" || jobStatus === "Closed";
 
     return (
         <div className="p-6 md:p-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Applications</h1>
-                    <div className="text-muted-foreground flex items-center gap-2">
+                    <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+                        {isCollaborative && <Sparkles className="w-8 h-8 text-purple-500" />}
+                        {isCollaborative ? "Squads & Applications" : "Applications"}
+                    </h1>
+                    <div className="text-muted-foreground flex items-center gap-2 mt-1">
                         Status: <Badge variant={isSubmissionPhase ? "default" : "outline"}>{jobStatus}</Badge>
                     </div>
+                    {isCollaborative && (
+                        <p className="text-muted-foreground mt-1 text-sm">
+                            ConnectX Intelligence has formed potential squads. Accepted members appear in the list below.
+                        </p>
+                    )}
                     {blindHiring && (
                         <Badge variant="outline" className="mt-2 bg-purple-50 text-purple-700 border-purple-200 gap-1 w-fit">
                             <EyeOff className="w-3 h-3" /> Blind Hiring Mode
@@ -234,6 +287,60 @@ const Applications = () => {
                     )}
                 </div>
             </div>
+
+            {/* SQUAD SECTION (Conditionally Rendered) */}
+            {isCollaborative && (
+                <div className="mb-10">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-purple-500" /> AI Squad Suggestions
+                    </h2>
+                    {loadingSquads ? (
+                        <div className="flex justify-center py-10 bg-neutral-50 dark:bg-neutral-900/30 rounded-lg">
+                            <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+                        </div>
+                    ) : squadSuggestions.length === 0 ? (
+                        <div className="text-center py-10 bg-neutral-50 dark:bg-neutral-900 rounded-lg border border-dashed">
+                            <p className="text-muted-foreground">No squads formed yet. Waiting for more eligible candidates.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {squadSuggestions.map((squad, idx) => (
+                                <Card key={idx} className="border-purple-200 dark:border-purple-800 shadow-lg">
+                                    <div className="bg-purple-50 dark:bg-purple-900/20 p-3 flex justify-between items-center border-b border-purple-100 dark:border-purple-800">
+                                        <h3 className="font-bold">Suggestion #{idx + 1}: {squad.squadName}</h3>
+                                        <Badge className="bg-green-100 text-green-700 border-green-200">
+                                            {squad.harmonyScore}% Harmony
+                                        </Badge>
+                                    </div>
+                                    <CardContent className="p-4 space-y-4">
+                                        <p className="text-sm italic text-muted-foreground">"{squad.reasoning}"</p>
+                                        <div className="space-y-2">
+                                            {squad.members.map((member, i) => (
+                                                <div key={i} className="flex items-center gap-3 p-2 rounded bg-neutral-50 dark:bg-neutral-900">
+                                                    <Avatar className="h-8 w-8">
+                                                        <AvatarImage src={member.details?.imageUrl} />
+                                                        <AvatarFallback>{member.details?.firstName?.[0]}</AvatarFallback>
+                                                    </Avatar>
+                                                    <div className="flex-1">
+                                                        <div className="flex justify-between text-xs">
+                                                            <span className="font-semibold">{member.details?.firstName} {member.details?.lastName}</span>
+                                                            <Badge variant="outline" className="text-[10px]">{member.roleName}</Badge>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <Button size="sm" className="w-full bg-purple-600 hover:bg-purple-700 text-white" onClick={() => handleInviteSquad(squad)}>
+                                            <Mail className="w-3 h-3 mr-2" /> Invite Squad
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    )}
+                    <div className="my-8 border-t border-neutral-200 dark:border-neutral-800" />
+                </div>
+            )}
 
             <div className="flex flex-col sm:flex-row gap-4">
                 <div className="relative flex-1">
@@ -438,173 +545,12 @@ const Applications = () => {
 
             {/* Candidate Profile Modal */}
             <Dialog open={!!selectedCandidate} onOpenChange={(open) => !open && setSelectedCandidate(null)}>
-                <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>Candidate Profile</DialogTitle>
-                    </DialogHeader>
-                    {selectedCandidate && (() => {
-                        const isBlindModal = blindHiring && selectedCandidate.status !== 'Hired';
-                        return (
-                            <div className="space-y-6">
-                                {/* Header Info */}
-                                <div className="flex items-center gap-4">
-                                    <Avatar className="h-20 w-20 border">
-                                        {!isBlindModal && <AvatarImage src={selectedCandidate.imageUrl} />}
-                                        <AvatarFallback className={`text-lg ${isBlindModal ? "bg-neutral-100 dark:bg-neutral-800" : ""}`}>
-                                            {isBlindModal ? <Lock className="w-8 h-8 text-muted-foreground/50" /> : (selectedCandidate.firstName?.[0] || "") + (selectedCandidate.lastName?.[0] || "")}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <h2 className={`text-2xl font-bold ${isBlindModal ? "text-muted-foreground blur-sm select-none" : ""}`}>
-                                            {isBlindModal ? "Anonymous Candidate" : `${selectedCandidate.firstName} ${selectedCandidate.lastName}`}
-                                        </h2>
-                                        <p className="text-muted-foreground">
-                                            {isBlindModal ? <span className="flex items-center gap-2 mt-1 text-sm"><EyeOff className="w-4 h-4" /> Contact Details Hidden</span> : selectedCandidate.email}
-                                        </p>
-                                        <div className="flex gap-2 mt-2">
-                                            <Badge variant="secondary">{selectedCandidate.experienceLevel || "Experience Not Specified"}</Badge>
-                                            {!isBlindModal && selectedCandidate.resumeUrl && (
-                                                <a href={selectedCandidate.resumeUrl} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline flex items-center gap-1">
-                                                    <ExternalLink className="w-3 h-3" /> Resume
-                                                </a>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* AI Suitability Match Score */}
-                                {selectedCandidate.suitabilityScore !== undefined && (
-                                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-100 dark:border-blue-900 rounded-xl p-4">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <h3 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
-                                                <Sparkles className="w-4 h-4 text-blue-500" /> AI Compatibility Match
-                                            </h3>
-                                            <Badge className={`text-base px-3 py-1 ${selectedCandidate.suitabilityScore >= 80 ? "bg-green-600" :
-                                                selectedCandidate.suitabilityScore >= 50 ? "bg-yellow-500" : "bg-red-500"
-                                                } hover:brightness-110`}>
-                                                {selectedCandidate.suitabilityScore}% Match
-                                            </Badge>
-                                        </div>
-                                        <p className="text-sm text-blue-800 dark:text-blue-200 leading-relaxed italic">
-                                            "{selectedCandidate.suitabilityAnalysis}"
-                                        </p>
-                                    </div>
-                                )}
-
-                                {/* Summary */}
-                                {selectedCandidate.summary && (
-                                    <div className="space-y-2">
-                                        <h3 className="font-semibold text-lg flex items-center gap-2">
-                                            <FileText className="w-4 h-4" /> About
-                                        </h3>
-                                        <p className="text-sm text-muted-foreground leading-relaxed p-3 bg-neutral-50 dark:bg-neutral-900 rounded-lg">
-                                            {selectedCandidate.summary}
-                                        </p>
-                                    </div>
-                                )}
-
-                                {/* Skills */}
-                                {selectedCandidate.skills && selectedCandidate.skills.length > 0 && (
-                                    <div className="space-y-2">
-                                        <h3 className="font-semibold text-lg flex items-center gap-2">
-                                            <Sparkles className="w-4 h-4" /> Skills
-                                        </h3>
-                                        <div className="flex flex-wrap gap-2">
-                                            {selectedCandidate.skills.map((skill, i) => (
-                                                <Badge key={i} variant="outline" className="px-3 py-1">
-                                                    {skill}
-                                                </Badge>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Verified Portfolio Section */}
-                                <div className="space-y-3">
-                                    <h3 className="font-semibold text-lg flex items-center gap-2">
-                                        <ShieldCheck className="w-4 h-4 text-blue-500" /> Verified Portfolio
-                                    </h3>
-                                    {loadingPortfolio ? (
-                                        <div className="flex items-center justify-center p-4">
-                                            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                                        </div>
-                                    ) : candidatePortfolio.length > 0 ? (
-                                        <div className="space-y-4">
-                                            {candidatePortfolio.map((item, index) => (
-                                                <WorkExperienceCard
-                                                    key={item.proofId || index}
-                                                    {...item}
-                                                    {...item.content}
-                                                />
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="p-4 border border-dashed rounded-lg bg-neutral-50/50 text-center text-sm text-muted-foreground">
-                                            No verified portfolio entries yet.
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Work Experience */}
-                                {selectedCandidate.workExperience && selectedCandidate.workExperience.length > 0 && (
-                                    <div className="space-y-3">
-                                        <h3 className="font-semibold text-lg flex items-center gap-2">
-                                            <Briefcase className="w-4 h-4" /> Experience
-                                        </h3>
-                                        <div className="space-y-4">
-                                            {selectedCandidate.workExperience.map((exp, i) => (
-                                                <div key={i} className="border-l-2 border-neutral-200 dark:border-neutral-800 pl-4 pb-1">
-                                                    <h4 className="font-medium">{exp.role}</h4>
-                                                    <div className="flex justify-between text-sm text-muted-foreground mb-1">
-                                                        <span>{exp.company}</span>
-                                                        <span>{exp.startDate} - {exp.endDate || "Present"}</span>
-                                                    </div>
-                                                    {exp.description && (
-                                                        <p className="text-sm mt-1 text-neutral-600 dark:text-neutral-400">
-                                                            {exp.description}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Education */}
-                                {selectedCandidate.education && (selectedCandidate.education.institution || Array.isArray(selectedCandidate.education)) && (
-                                    <div className="space-y-3">
-                                        <h3 className="font-semibold text-lg flex items-center gap-2">
-                                            <GraduationCap className="w-4 h-4" /> Education
-                                        </h3>
-                                        {isBlindModal ? (
-                                            <div className="flex items-center justify-center p-6 border border-dashed rounded-lg bg-neutral-50/50">
-                                                <p className="text-muted-foreground flex items-center gap-2 text-sm italic">
-                                                    <EyeOff className="w-4 h-4" /> Education details hidden in Blind Mode
-                                                </p>
-                                            </div>
-                                        ) : (
-                                            Array.isArray(selectedCandidate.education) ? (
-                                                selectedCandidate.education.map((edu, i) => (
-                                                    <div key={i} className="flex flex-col text-sm border p-3 rounded-lg bg-neutral-50 dark:bg-neutral-900/50">
-                                                        <span className="font-bold">{edu.institution}</span>
-                                                        <span className="text-muted-foreground">{edu.degree} • {edu.fieldOfStudy}</span>
-                                                        <span className="text-xs text-muted-foreground mt-1">{edu.startDate} - {edu.endDate}</span>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <div className="flex flex-col text-sm border p-3 rounded-lg bg-neutral-50 dark:bg-neutral-900/50">
-                                                    <span className="font-bold">{selectedCandidate.education.institution}</span>
-                                                    <span className="text-muted-foreground">{selectedCandidate.education.degree} • {selectedCandidate.education.fieldOfStudy}</span>
-                                                    <span className="text-xs text-muted-foreground mt-1">{selectedCandidate.education.startDate} - {selectedCandidate.education.endDate}</span>
-                                                </div>
-                                            )
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })()}
-                </DialogContent>
+                <CandidateProfileModal
+                    candidate={selectedCandidate}
+                    blindHiring={blindHiring}
+                    portfolio={candidatePortfolio}
+                    loadingPortfolio={loadingPortfolio}
+                />
             </Dialog>
         </div>
     );

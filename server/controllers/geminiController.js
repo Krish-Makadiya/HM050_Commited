@@ -125,3 +125,86 @@ export const generateJobDetails = async (req, res) => {
     res.status(500).json({ error: "Failed to generate job details" });
   }
 };
+
+export const generateRoleBasedJobDetails = async (req, res) => {
+  try {
+    const { projectIdea } = req.body;
+
+    if (!projectIdea) {
+      return res.status(400).json({ error: "Project idea is required" });
+    }
+
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-09-2025" });
+    const prompt = `You are an expert technical architect and squad lead.
+            User Idea: "${projectIdea}"
+            
+            Generate 2 distinct collaborative project plans (e.g., MVP Squad, Full-Scale Squad).
+            Unlike standard jobs, this MUST be split into **Roles** (2-3 distinct roles).
+            
+            For each plan:
+            1. Define 2-3 Roles (e.g., Frontend Lead, Backend Architect, UI/UX Designer).
+            2. Split the work into Modules, and ASSIGN each module to a specific Role.
+            
+            Return a valid JSON object with key "options".
+            Structure:
+            {
+                "options": [
+                    {
+                        "title": "Option Title",
+                        "description": "...",
+                        "totalBudget": 5000,
+                        "timeline": "2 Months",
+                        "roles": [
+                            { 
+                                "name": "Frontend Developer", 
+                                "description": "Responsible for UI...", 
+                                "skills": ["React", "Tailwind"] 
+                            },
+                            { 
+                                "name": "Backend Developer", 
+                                "description": "API...", 
+                                "skills": ["Node.js", "Firebase"] 
+                            }
+                        ],
+                        "modules": [
+                            {
+                                "title": "Module 1: Auth & User Profile",
+                                "description": "Setup authentication...",
+                                "assignedRole": "Backend Developer",
+                                "tasks": [
+                                    { "description": "Setup Clerk", "payout": 200 }
+                                ]
+                            },
+                            {
+                                "title": "Module 2: Dashboard UI",
+                                "description": "Main layouts...",
+                                "assignedRole": "Frontend Developer",
+                                "tasks": [
+                                    { "description": "Sidebar", "payout": 300 }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+            Do not include markdown.`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+
+    const data = JSON.parse(cleanText);
+    res.json(data);
+
+  } catch (error) {
+    console.error("Error generating role-based details:", error);
+    res.status(500).json({ error: "Failed to generate squad details" });
+  }
+};
+
+export const analyzeTeamHarmony = async (req, res) => {
+  // This is a dedicated endpoint for ad-hoc analysis if needed, 
+  // though the main logic is in connectx.controller.js
+  // We can keep this empty or implementation specific logic if we want to decouple.
+  res.status(501).json({ message: "Not implemented yet, use connectx controller." });
+};

@@ -974,6 +974,7 @@ export const getRecruiterActiveWorkController = async (req, res) => {
                         modules: jobData.modules || [],
                         submissionLink: appData.submissionLink,
                         submissionDescription: appData.submissionDescription,
+                        squadRole: appData.squadRole // Include Squad Role for filtering modules
                     });
                 });
             }),
