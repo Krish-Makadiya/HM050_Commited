@@ -12,7 +12,7 @@ export const generateMilestones = async (req, res) => {
       return res.status(400).json({ error: "Project idea is required" });
     }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-09-2025" });
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
     const prompt = `You are an expert project manager and technical lead.
     A recruiter wants to build a project based on this idea: "${projectIdea}".
     Target audience: Non-technical recruiter looking for technical candidates.

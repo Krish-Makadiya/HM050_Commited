@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/ui/card";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
-import { Calendar, Clock, DollarSign, Loader2, Building2, UploadCloud, Lock } from "lucide-react";
+import { Calendar, Clock, DollarSign, Loader2, Building2, UploadCloud, Lock, PhoneOutgoing, PhoneMissed, Sparkles } from "lucide-react";
 import { useUser } from '@clerk/clerk-react';
 import axios from 'axios';
 import { formatDistanceToNow } from 'date-fns';
@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/ui/input";
 import { Label } from "@/ui/label";
 import { Textarea } from "@/ui/textarea";
+import Vapi from "@vapi-ai/web";
+
 
 const MyProposals = () => {
     const { user } = useUser();
@@ -21,6 +23,24 @@ const MyProposals = () => {
     const [submissionDesc, setSubmissionDesc] = useState("");
     const [submissionImages, setSubmissionImages] = useState("");
     const [submissionNotes, setSubmissionNotes] = useState("");
+
+    const [vapi, setVapi] = useState(null);
+    const [isConnected, setIsConnected] = useState(false);
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const [transcript, setTranscript] = useState([]);
+    const [interviewModalOpen, setInterviewModalOpen] = useState(false);
+    const [analyzing, setAnalyzing] = useState(false);
+    const [analysisResult, setAnalysisResult] = useState(null);
+
+    const scrollRef = useRef(null);
+    const transcriptRef = useRef([]);
+    const interviewJobIdRef = useRef(null);
+
+    useEffect(() => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+    }, [transcript]);
 
     useEffect(() => {
         const fetchProposals = async () => {
@@ -85,6 +105,108 @@ const MyProposals = () => {
         }
     };
 
+    useEffect(() => {
+        const vapiInstance = new Vapi("9e20e004-ca55-4f96-819c-61fe4be9a71b");
+        setVapi(vapiInstance);
+
+        // Event listeners
+        vapiInstance.on("call-start", () => {
+            console.log("Call started");
+            setIsConnected(true);
+        });
+
+        vapiInstance.on("call-end", () => {
+            console.log("Call ended");
+            setIsConnected(false);
+            setIsSpeaking(false);
+
+            // Trigger Analysis
+            if (transcriptRef.current.length > 0 && interviewJobIdRef.current) {
+                analyzeInterview();
+            }
+        });
+
+        vapiInstance.on("speech-start", () => {
+            console.log("Assistant started speaking");
+            setIsSpeaking(true);
+        });
+
+        vapiInstance.on("speech-end", () => {
+            console.log("Assistant stopped speaking");
+            setIsSpeaking(false);
+        });
+
+        vapiInstance.on("message", (message) => {
+            if (message.type === "transcript") {
+                if (
+                    message.type === "transcript" &&
+                    message.transcriptType == "final"
+                ) {
+                    const newMsg = {
+                        role: message.role,
+                        text: message.transcript,
+                    };
+
+                    setTranscript((prev) => [...prev, newMsg]);
+                    transcriptRef.current.push(newMsg);
+                }
+            }
+        });
+
+        vapiInstance.on("error", (error) => {
+            console.error("Vapi error:", error);
+        });
+
+        return () => {
+            vapiInstance?.stop();
+        };
+    }, []);
+
+    const analyzeInterview = async () => {
+        if (!interviewJobIdRef.current || !user) return;
+
+        setAnalyzing(true);
+        try {
+            const response = await axios.post(
+                `${import.meta.env.VITE_SERVER_API}/api/jobs/${interviewJobIdRef.current}/applicants/${user.id}/analyze-interview`,
+                { transcript: transcriptRef.current }
+            );
+            setAnalysisResult(response.data);
+        } catch (error) {
+            console.error("Analysis failed:", error);
+            // toast.error("Failed to analyze interview");
+        } finally {
+            setAnalyzing(false);
+        }
+    };
+
+    const handleViewAnalysis = (proposal) => {
+        setAnalysisResult({
+            interviewScore: proposal.interviewScore,
+            interviewSummary: proposal.interviewSummary,
+            interviewStrengths: proposal.interviewStrengths,
+            interviewWeaknesses: proposal.interviewWeaknesses,
+        });
+        setTranscript([]); // Or fetch stored transcript if available
+        setInterviewModalOpen(true);
+    };
+
+    const startCall = (jobId) => {
+        setTranscript([]);
+        transcriptRef.current = [];
+        setAnalysisResult(null);
+        interviewJobIdRef.current = jobId;
+        setInterviewModalOpen(true);
+        if (vapi) {
+            vapi.start("c883251f-3ff9-4a84-909c-17c6db653133");
+        }
+    };
+    const endCall = () => {
+        if (vapi) {
+            vapi.stop();
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex h-screen items-center justify-center">
@@ -140,15 +262,36 @@ const MyProposals = () => {
 
                                 <CardFooter className="pt-0 flex flex-col gap-2">
                                     {proposal.status === 'Shortlisted' && (
-                                        <Button
-                                            className="w-full bg-emerald-600 hover:bg-emerald-700 gap-2"
-                                            onClick={() => handleOpenSubmit(proposal.jobId)}
-                                            disabled={!isSubmissionAllowed}
-                                            title={!isSubmissionAllowed ? "Recruiter has not started submission phase yet" : "Submit your work"}
-                                        >
-                                            {isSubmissionAllowed ? <UploadCloud className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                                            {isSubmissionAllowed ? "Submit Proof of Work" : "Submission Locked"}
-                                        </Button>
+                                        <>
+                                            <Button
+                                                className="w-full bg-emerald-600 hover:bg-emerald-700 gap-2"
+                                                onClick={() => handleOpenSubmit(proposal.jobId)}
+                                                disabled={!isSubmissionAllowed}
+                                                title={!isSubmissionAllowed ? "Recruiter has not started submission phase yet" : "Submit your work"}
+                                            >
+                                                {isSubmissionAllowed ? <UploadCloud className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                                                {isSubmissionAllowed ? "Submit Proof of Work" : "Submission Locked"}
+                                            </Button>
+                                            <div className="w-full mt-4 flex justify-center">
+                                                {proposal.interviewScore ? (
+                                                    <button
+                                                        className="flex gap-2 items-center bg-purple-100 hover:bg-purple-200 text-purple-800 border-none rounded-full px-5 py-3 text-base font-bold cursor-pointer transition-all duration-300 ease-in-out shadow-sm"
+                                                        onClick={() => handleViewAnalysis(proposal)}
+                                                    >
+                                                        <Sparkles className="w-5 h-5" />
+                                                        <p>View Interview Analysis</p>
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        className="flex gap-2 items-center bg-light-primary dark:bg-dark-primary text-white border-none rounded-full px-5 py-3 text-base font-bold cursor-pointer hover:opacity-90 transition-all duration-300 ease-in-out shadow-md"
+                                                        onClick={() => startCall(proposal.jobId)}
+                                                    >
+                                                        <PhoneOutgoing className="w-5 h-5" />
+                                                        <p>Talk to Assistant</p>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </>
                                     )}
                                     {proposal.status === 'Work Submitted' && (
                                         <Button variant="outline" className="w-full" disabled>
@@ -237,7 +380,138 @@ const MyProposals = () => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+
+            <Dialog open={interviewModalOpen} onOpenChange={(open) => {
+                if (!open) endCall();
+                setInterviewModalOpen(open);
+            }}>
+                <DialogContent className="sm:max-w-[600px]">
+                    <DialogHeader>
+                        <DialogTitle>Interview in Progress</DialogTitle>
+                        <DialogDescription>
+                            Speak clearly with the AI assistant. The conversation is being transcribed below.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="flex flex-col items-center justify-center p-4">
+                        <div className="w-full bg-white dark:bg-neutral-900 rounded-xl p-5 shadow-sm border border-neutral-200 dark:border-neutral-800">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <div
+                                        className={`${isSpeaking
+                                            ? "bg-[#ff4444] animate-pulse"
+                                            : "bg-[#12A594]"
+                                            } w-3 h-3 rounded-full`}></div>
+                                    <span className="font-bold text-neutral-800 dark:text-neutral-200">
+                                        {isSpeaking
+                                            ? "Assistant Speaking..."
+                                            : "Listening..."}
+                                    </span>
+                                </div>
+                                <button
+                                    onClick={endCall}
+                                    className="bg-[#ff4444] hover:bg-red-600 flex gap-2 items-center text-white border-none rounded-md px-4 py-2 text-sm font-medium cursor-pointer transition-colors">
+                                    <PhoneMissed className="w-4 h-4" />
+                                    <p>End Call</p>
+                                </button>
+                            </div>
+
+                            <div
+                                ref={scrollRef}
+                                className="h-[400px] overflow-y-auto mb-3 p-4 bg-[#f8f9fa] dark:bg-neutral-800 rounded-lg space-y-3">
+                                {analyzing ? (
+                                    <div className="flex flex-col items-center justify-center h-full space-y-4">
+                                        <Loader2 className="w-10 h-10 animate-spin text-purple-600" />
+                                        <p className="text-neutral-500 animate-pulse">Analyzing interview performance...</p>
+                                    </div>
+                                ) : analysisResult ? (
+                                    <div className="space-y-6 animate-in fade-in duration-500">
+                                        <div className="text-center space-y-2 border-b pb-4 dark:border-neutral-700">
+                                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-100 dark:bg-purple-900 border-4 border-purple-500 text-purple-700 dark:text-purple-300 font-bold text-2xl">
+                                                {analysisResult.interviewScore}
+                                            </div>
+                                            <h3 className="text-xl font-bold">Interview Analysis</h3>
+                                            <p className="text-sm text-muted-foreground">{analysisResult.interviewSummary}</p>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <h4 className="font-semibold text-green-600 dark:text-green-400 flex items-center gap-2">
+                                                    Strengths
+                                                </h4>
+                                                <ul className="text-sm space-y-1 list-disc pl-4 text-neutral-700 dark:text-neutral-300">
+                                                    {analysisResult.interviewStrengths?.map((s, i) => (
+                                                        <li key={i}>{s}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <h4 className="font-semibold text-red-600 dark:text-red-400 flex items-center gap-2">
+                                                    Improvements
+                                                </h4>
+                                                <ul className="text-sm space-y-1 list-disc pl-4 text-neutral-700 dark:text-neutral-300">
+                                                    {analysisResult.interviewWeaknesses?.map((w, i) => (
+                                                        <li key={i}>{w}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-4 border-t dark:border-neutral-700">
+                                            <h4 className="font-semibold text-sm mb-2 text-neutral-500 uppercase tracking-wider">Transcript</h4>
+                                            <div className="max-h-40 overflow-y-auto space-y-2 text-xs text-neutral-600 dark:text-neutral-400 p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
+                                                {transcript.map((msg, i) => (
+                                                    <p key={i}>
+                                                        <span className="font-bold uppercase mr-1">{msg.role}:</span>
+                                                        {msg.text}
+                                                    </p>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : !isConnected && transcript.length > 0 ? (
+                                    <div className="space-y-4">
+                                        <h3 className="font-semibold text-lg border-b pb-2">Interview Transcript</h3>
+                                        <div className="space-y-2 text-sm">
+                                            {transcript.map((msg, i) => (
+                                                <p key={i} className="leading-relaxed">
+                                                    <span className={`font-bold ${msg.role === 'assistant' ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'} uppercase text-xs mr-2`}>
+                                                        {msg.role}:
+                                                    </span>
+                                                    {msg.text}
+                                                </p>
+                                            ))}
+                                            <p className="text-center text-muted-foreground text-xs pt-4">Waiting for analysis...</p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    transcript.length === 0 ? (
+                                        <div className="flex h-full items-center justify-center text-neutral-500">
+                                            <p>Conversation will appear here...</p>
+                                        </div>
+                                    ) : (
+                                        transcript.map((msg, i) => (
+                                            <div
+                                                key={i}
+                                                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"
+                                                    }`}>
+                                                <div
+                                                    className={`${msg.role === "user"
+                                                        ? "bg-[#12A594] text-white"
+                                                        : "bg-[#333] dark:bg-neutral-700 text-white"
+                                                        } px-4 py-2 rounded-2xl text-sm max-w-[80%] shadow-sm`}>
+                                                    {msg.text}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </div >
     );
 };
 
